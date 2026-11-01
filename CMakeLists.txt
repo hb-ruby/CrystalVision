@@ -26,20 +26,24 @@ pkg_check_modules(XCB REQUIRED IMPORTED_TARGET
 )
 
 # --- ONNX Runtime (C++ API) ----------------------------------------------
-find_package(OnnxRuntime REQUIRED)
+include(OnnxRuntime)
 
 # --- App -----------------------------------------------------------------
 add_executable(crystalvision
   src/main.cpp
+  src/paths.cpp
 )
 
 target_compile_options(crystalvision PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wconversion)
 target_link_libraries(crystalvision PRIVATE PkgConfig::XCB OnnxRuntime::OnnxRuntime)
 target_compile_definitions(crystalvision PRIVATE
-  CV_MODEL_DIR="${CMAKE_CURRENT_SOURCE_DIR}/models"
+  CV_DEV_MODEL_DIR="${CMAKE_CURRENT_SOURCE_DIR}/models"
 )
 
 if(CV_ENABLE_ASAN)
   target_compile_options(crystalvision PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
   target_link_options(crystalvision PRIVATE -fsanitize=address,undefined)
 endif()
+
+# --- Install + .deb ------------------------------------------------------
+include(Packaging)

@@ -1,0 +1,67 @@
+# Builds the .deb on Ubuntu 24.04 (the base of Linux Mint 22), installs it, and
+# smoke-tests it under a virtual X server. Pushing a tag like v0.1.0 also attaches
+# the .deb to a GitHub release.
+name: deb
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write # needed to upload release assets on tags
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake ninja-build pkgconf dpkg-dev xvfb \
+            libxcb1-dev libxcb-shm0-dev libxcb-composite0-dev \
+            libxcb-xfixes0-dev libxcb-shape0-dev libxcb-image0-dev
+
+      - name: Cache model
+        uses: actions/cache@v4
+        with:
+          path: models/640m.onnx
+          key: nudenet-640m-v3.4
+
+      - name: Fetch model
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/fetch-models.sh
+
+      - name: Build
+        run: |
+          cmake --preset release
+          cmake --build --preset release
+
+      - name: Package
+        working-directory: build/release
+        run: cpack
+
+      - name: Install and smoke-test the package
+        run: |
+          sudo apt-get install -y ./build/release/crystalvision_*.deb
+          xvfb-run -a crystalvision
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: crystalvision-deb
+          path: build/release/crystalvision_*.deb
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" build/release/crystalvision_*.deb --clobber
