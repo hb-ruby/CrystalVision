@@ -1,0 +1,15 @@
+# Build output
+/build/
+/out/
+compile_commands.json
+.cache/
+
+# Model weights (fetched by scripts/fetch-models.sh, not committed)
+/models/*.onnx
+/models/*.pt
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
