@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <optional>
 
-namespace cv {
+namespace crystal {
 
 // Locates the NudeNet model. Search order:
 //   1. $CRYSTALVISION_MODEL (explicit override)
@@ -11,4 +11,4 @@ namespace cv {
 //   3. <source tree>/models/640m.onnx (development builds)
 std::optional<std::filesystem::path> findModel();
 
-} // namespace cv
+} // namespace crystal

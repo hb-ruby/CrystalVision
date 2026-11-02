@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <system_error>
 
-namespace cv {
+namespace crystal {
 
 namespace fs = std::filesystem;
 
@@ -36,4 +36,4 @@ std::optional<fs::path> findModel() {
     return std::nullopt;
 }
 
-} // namespace cv
+} // namespace crystal

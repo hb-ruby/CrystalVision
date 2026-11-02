@@ -29,7 +29,7 @@ bool checkOnnx() {
         Ort::Env env{ORT_LOGGING_LEVEL_WARNING, "crystalvision"};
         std::printf("ONNX Runtime: %s\n", Ort::GetVersionString().c_str());
 
-        auto model = cv::findModel();
+        auto model = crystal::findModel();
         if (!model) {
             std::fprintf(stderr, "error: model not found (run scripts/fetch-models.sh)\n");
             return false;
