@@ -80,8 +80,9 @@ int dumpFrame(const char* path) {
             std::fprintf(stderr, "error: cannot write %s\n", path);
             return EXIT_FAILURE;
         }
-        std::printf("captured %dx%d from %d windows (%d skipped) in %.1f ms -> %s\n", frame.width,
-                    frame.height, stats.windowsDrawn, stats.windowsSkipped, took.count(), path);
+        std::printf("captured %dx%d: wallpaper %s, %d windows (%d skipped) in %.1f ms -> %s\n",
+                    frame.width, frame.height, stats.wallpaperDrawn ? "yes" : "no",
+                    stats.windowsDrawn, stats.windowsSkipped, took.count(), path);
         return EXIT_SUCCESS;
     } catch (const std::exception& e) {
         std::fprintf(stderr, "error: %s\n", e.what());

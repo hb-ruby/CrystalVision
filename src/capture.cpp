@@ -6,6 +6,7 @@
 #include <sys/shm.h>
 
 #include <algorithm>
+#include <cstring>
 #include <stdexcept>
 #include <string>
 
@@ -52,6 +53,16 @@ Capturer::Capturer(x11::Connection& x) : x_{x} {
     if (err) throw std::runtime_error{"could not enable Composite redirection"};
 
     pixmap_ = xcb_generate_id(c);
+
+    const char* names[] = {"_XROOTPMAP_ID", "ESETROOT_PMAP_ID"};
+    xcb_intern_atom_cookie_t cookies[2];
+    for (int i = 0; i < 2; ++i)
+        cookies[i] = xcb_intern_atom(c, /*only_if_exists=*/1,
+                                     static_cast<std::uint16_t>(std::strlen(names[i])), names[i]);
+    for (int i = 0; i < 2; ++i) {
+        Reply<xcb_intern_atom_reply_t> r{xcb_intern_atom_reply(c, cookies[i], nullptr)};
+        if (r) wallpaperAtoms_[i] = r->atom;
+    }
 }
 
 Capturer::~Capturer() {
@@ -113,6 +124,9 @@ Capturer::Stats Capturer::capture(Frame& out) {
         xcb_get_geometry_reply(c, xcb_get_geometry(c, x_.root()), nullptr)};
     if (!rootGeo) throw std::runtime_error{"lost connection to X server"};
     out.reset(rootGeo->width, rootGeo->height);
+
+    // Wallpaper first; windows are painted over it.
+    stats.wallpaperDrawn = grabWallpaper(out);
 
     // Top-level windows, bottom of the stack first.
     Reply<xcb_query_tree_reply_t> tree{
@@ -190,6 +204,48 @@ bool Capturer::grabWindow(Frame& out, xcb_window_t window, const xcb_get_geometr
 
     paste(out, BgrxImage{shmAddr_, w, h, w * 4, geo.depth == 32}, x0, y0);
     return true;
+}
+
+bool Capturer::grabWallpaper(Frame& out) {
+    xcb_connection_t* c = x_.get();
+
+    for (xcb_atom_t atom : wallpaperAtoms_) {
+        if (atom == XCB_ATOM_NONE) continue;
+        Reply<xcb_get_property_reply_t> prop{xcb_get_property_reply(
+            c, xcb_get_property(c, 0, x_.root(), atom, XCB_ATOM_PIXMAP, 0, 1), nullptr)};
+        if (!prop || prop->type != XCB_ATOM_PIXMAP || prop->format != 32 ||
+            xcb_get_property_value_length(prop.get()) < 4)
+            continue;
+        const xcb_pixmap_t pixmap =
+            *static_cast<const xcb_pixmap_t*>(xcb_get_property_value(prop.get()));
+        if (pixmap == XCB_NONE) continue;
+
+        // The property can name a pixmap that has since been freed: check, don't assume.
+        xcb_generic_error_t* e = nullptr;
+        Reply<xcb_get_geometry_reply_t> geo{
+            xcb_get_geometry_reply(c, xcb_get_geometry(c, pixmap), &e)};
+        Reply<xcb_generic_error_t> geoErr{e};
+        if (!geo || (geo->depth != 24 && geo->depth != 32)) continue;
+
+        const int w = std::min<int>(geo->width, out.width);
+        const int h = std::min<int>(geo->height, out.height);
+        if (w <= 0 || h <= 0) continue;
+        ensureShm(static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 4);
+
+        e = nullptr;
+        Reply<xcb_shm_get_image_reply_t> img{xcb_shm_get_image_reply(
+            c,
+            xcb_shm_get_image(c, pixmap, 0, 0, static_cast<uint16_t>(w), static_cast<uint16_t>(h),
+                              ~0u, XCB_IMAGE_FORMAT_Z_PIXMAP, seg_, 0),
+            &e)};
+        Reply<xcb_generic_error_t> imgErr{e};
+        if (!img) continue;
+
+        // The wallpaper is the bottom layer, so treat it as opaque even if 32-bit.
+        paste(out, BgrxImage{shmAddr_, w, h, w * 4, false}, 0, 0);
+        return true;
+    }
+    return false;
 }
 
 } // namespace crystal
