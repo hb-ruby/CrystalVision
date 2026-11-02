@@ -38,6 +38,13 @@ cmake --preset debug && cmake --build --preset debug
 
 Presets: `debug`, `asan` (AddressSanitizer + UBSan), `release`.
 
+```sh
+ctest --preset debug                                     # unit tests
+./build/debug/crystalvision --dump-frame frame.ppm       # capture the screen once
+```
+
+The capture leaves out CrystalVision's own windows, so it can differ from a plain screenshot.
+
 ## Packaging
 
 ```sh

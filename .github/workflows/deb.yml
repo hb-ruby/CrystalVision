@@ -43,6 +43,9 @@ jobs:
           cmake --preset release
           cmake --build --preset release
 
+      - name: Unit tests
+        run: ctest --preset release
+
       - name: Package
         working-directory: build/release
         run: cpack
@@ -51,6 +54,8 @@ jobs:
         run: |
           sudo apt-get install -y ./build/release/crystalvision_*.deb
           xvfb-run -a crystalvision
+          xvfb-run -a crystalvision --dump-frame frame.ppm
+          test -s frame.ppm
 
       - uses: actions/upload-artifact@v7
         with:

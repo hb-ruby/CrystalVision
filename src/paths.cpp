@@ -25,7 +25,8 @@ std::optional<fs::path> findModel() {
     std::error_code ec;
     fs::path exe = fs::read_symlink("/proc/self/exe", ec);
     if (!ec) {
-        fs::path installed = exe.parent_path() / ".." / "share" / "crystalvision" / "models" / kModelFile;
+        fs::path installed =
+            exe.parent_path() / ".." / "share" / "crystalvision" / "models" / kModelFile;
         if (isFile(installed)) return fs::weakly_canonical(installed, ec);
     }
 

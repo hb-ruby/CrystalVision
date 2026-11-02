@@ -1,28 +1,24 @@
-// CrystalVision — smoke test: proves the build can load the model with ONNX Runtime
-// and reach the X server through XCB.
+// CrystalVision entry point.
+//
+//   crystalvision                     smoke test: load the model, check the X server
+//   crystalvision --dump-frame FILE   capture the screen once and save it as a PPM image
 
+#include "capture.hpp"
+#include "frame.hpp"
 #include "paths.hpp"
+#include "x11.hpp"
 
 #include <onnxruntime_cxx_api.h>
 #include <xcb/composite.h>
 #include <xcb/shm.h>
-#include <xcb/xcb.h>
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
-#include <memory>
+#include <exception>
+#include <string_view>
 
 namespace {
-
-struct XcbDisconnect {
-    void operator()(xcb_connection_t* c) const { xcb_disconnect(c); }
-};
-using XcbConnection = std::unique_ptr<xcb_connection_t, XcbDisconnect>;
-
-bool hasExtension(xcb_connection_t* conn, xcb_extension_t* ext) {
-    const xcb_query_extension_reply_t* r = xcb_get_extension_data(conn, ext);
-    return r != nullptr && r->present;
-}
 
 bool checkOnnx() {
     try {
@@ -49,29 +45,65 @@ bool checkOnnx() {
 }
 
 bool checkX11() {
-    int screenNum = 0;
-    XcbConnection conn{xcb_connect(nullptr, &screenNum)};
-    if (xcb_connection_has_error(conn.get())) {
-        std::fprintf(stderr, "error: cannot connect to X server (is DISPLAY set?)\n");
+    try {
+        crystal::x11::Connection x;
+        const xcb_screen_t& s = x.screen();
+        std::printf("X11: screen %d, %ux%u, depth %u\n", x.screenNumber(), s.width_in_pixels,
+                    s.height_in_pixels, s.root_depth);
+        std::printf("X11: MIT-SHM %s, Composite %s\n", x.hasExtension(&xcb_shm_id) ? "yes" : "NO",
+                    x.hasExtension(&xcb_composite_id) ? "yes" : "NO");
+        return true;
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "error: %s\n", e.what());
         return false;
     }
+}
 
-    xcb_screen_iterator_t it = xcb_setup_roots_iterator(xcb_get_setup(conn.get()));
-    for (int i = 0; i < screenNum; ++i) xcb_screen_next(&it);
-    const xcb_screen_t* screen = it.data;
+int smokeTest() {
+    bool ok = checkOnnx();
+    ok = checkX11() && ok;
+    return ok ? EXIT_SUCCESS : EXIT_FAILURE;
+}
 
-    std::printf("X11: screen %d, %ux%u, depth %u\n", screenNum, screen->width_in_pixels,
-                screen->height_in_pixels, screen->root_depth);
-    std::printf("X11: MIT-SHM %s, Composite %s\n",
-                hasExtension(conn.get(), &xcb_shm_id) ? "yes" : "NO",
-                hasExtension(conn.get(), &xcb_composite_id) ? "yes" : "NO");
-    return true;
+int dumpFrame(const char* path) {
+    try {
+        crystal::x11::Connection x;
+        crystal::Capturer capturer{x};
+        crystal::Frame frame;
+
+        const auto start = std::chrono::steady_clock::now();
+        const auto stats = capturer.capture(frame);
+        const std::chrono::duration<double, std::milli> took =
+            std::chrono::steady_clock::now() - start;
+
+        if (!crystal::writePpm(frame, path)) {
+            std::fprintf(stderr, "error: cannot write %s\n", path);
+            return EXIT_FAILURE;
+        }
+        std::printf("captured %dx%d from %d windows (%d skipped) in %.1f ms -> %s\n", frame.width,
+                    frame.height, stats.windowsDrawn, stats.windowsSkipped, took.count(), path);
+        return EXIT_SUCCESS;
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "error: %s\n", e.what());
+        return EXIT_FAILURE;
+    }
+}
+
+void usage(std::FILE* to) {
+    std::fprintf(to, "usage: crystalvision [--dump-frame FILE.ppm]\n");
 }
 
 } // namespace
 
-int main() {
-    bool ok = checkOnnx();
-    ok = checkX11() && ok;
-    return ok ? EXIT_SUCCESS : EXIT_FAILURE;
+int main(int argc, char** argv) {
+    if (argc == 1) return smokeTest();
+
+    const std::string_view arg = argv[1];
+    if (arg == "--dump-frame" && argc == 3) return dumpFrame(argv[2]);
+    if (arg == "--help" || arg == "-h") {
+        usage(stdout);
+        return EXIT_SUCCESS;
+    }
+    usage(stderr);
+    return EXIT_FAILURE;
 }

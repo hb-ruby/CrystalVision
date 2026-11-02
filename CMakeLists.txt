@@ -28,21 +28,36 @@ pkg_check_modules(XCB REQUIRED IMPORTED_TARGET
 # --- ONNX Runtime (C++ API) ----------------------------------------------
 include(OnnxRuntime)
 
-# --- App -----------------------------------------------------------------
-add_executable(crystalvision
-  src/main.cpp
-  src/paths.cpp
-)
+# --- Shared settings for all our targets ---------------------------------
+add_library(crystalvision_options INTERFACE)
+target_compile_options(crystalvision_options INTERFACE -Wall -Wextra -Wpedantic -Wshadow -Wconversion)
+if(CV_ENABLE_ASAN)
+  target_compile_options(crystalvision_options INTERFACE -fsanitize=address,undefined -fno-omit-frame-pointer)
+  target_link_options(crystalvision_options INTERFACE -fsanitize=address,undefined)
+endif()
 
-target_compile_options(crystalvision PRIVATE -Wall -Wextra -Wpedantic -Wshadow -Wconversion)
-target_link_libraries(crystalvision PRIVATE PkgConfig::XCB OnnxRuntime::OnnxRuntime)
-target_compile_definitions(crystalvision PRIVATE
+# --- Core library (everything except main, so tests can link it) --------
+add_library(crystalvision_core STATIC
+  src/capture.cpp
+  src/frame.cpp
+  src/paths.cpp
+  src/x11.cpp
+)
+target_include_directories(crystalvision_core PUBLIC src)
+target_link_libraries(crystalvision_core PUBLIC crystalvision_options PkgConfig::XCB)
+target_compile_definitions(crystalvision_core PRIVATE
   CV_DEV_MODEL_DIR="${CMAKE_CURRENT_SOURCE_DIR}/models"
 )
 
-if(CV_ENABLE_ASAN)
-  target_compile_options(crystalvision PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
-  target_link_options(crystalvision PRIVATE -fsanitize=address,undefined)
+# --- App -----------------------------------------------------------------
+add_executable(crystalvision src/main.cpp)
+target_link_libraries(crystalvision PRIVATE crystalvision_core OnnxRuntime::OnnxRuntime)
+
+# --- Tests ---------------------------------------------------------------
+option(CV_BUILD_TESTS "Build unit tests" ON)
+if(CV_BUILD_TESTS)
+  enable_testing()
+  add_subdirectory(tests)
 endif()
 
 # --- Install + .deb ------------------------------------------------------
