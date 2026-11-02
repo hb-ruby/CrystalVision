@@ -1,0 +1,6 @@
+# Python reference for scripts/compare-nudenet.py. Not needed to build or run CrystalVision.
+#   python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements-reference.txt
+nudenet==3.4.2
+onnxruntime==1.31.0  # keep equal to CV_ORT_VERSION in cmake/OnnxRuntime.cmake
+opencv-python-headless==5.0.0.93
+numpy==2.5.4

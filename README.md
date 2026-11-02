@@ -41,6 +41,18 @@ Presets: `debug`, `asan` (AddressSanitizer + UBSan), `release`.
 ```sh
 ctest --preset debug                                     # unit tests
 ./build/debug/crystalvision --dump-frame frame.ppm       # capture the screen once
+./build/release/crystalvision --detect in.ppm out.ppm    # detect on an image, draw boxes
+./build/release/crystalvision --detect-screen out.ppm    # detect on one screen capture
+```
+
+`--detect` takes binary PPM images and prints each detection with its label, score, box,
+and timings. The output image is optional. Use a release build to get realistic timings.
+
+To check the detector against NudeNet's own Python code (needs `python3.12-venv`):
+
+```sh
+python3 -m venv .venv && .venv/bin/pip install -r scripts/requirements-reference.txt
+.venv/bin/python scripts/compare-nudenet.py image1.ppm image2.ppm   # prints PASS or FAIL
 ```
 
 The capture leaves out CrystalVision's own windows, so it can differ from a plain screenshot.

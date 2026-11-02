@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <string>
 #include <vector>
 
 namespace crystal {
@@ -32,5 +33,13 @@ void paste(Frame& dst, const BgrxImage& src, int x, int y);
 
 // Saves the frame as a binary PPM (opens in any image viewer). Returns false on I/O error.
 bool writePpm(const Frame& frame, const std::filesystem::path& path);
+
+// Loads a binary (P6, 8-bit) PPM. On failure returns false and describes why in `error`.
+bool readPpm(const std::filesystem::path& path, Frame& out, std::string& error);
+
+// Draws a rectangle outline `thickness` pixels wide, inside the box (x, y, w, h),
+// clipped to the frame.
+void drawRect(Frame& frame, int x, int y, int w, int h, std::uint8_t r, std::uint8_t g,
+              std::uint8_t b, int thickness = 2);
 
 } // namespace crystal

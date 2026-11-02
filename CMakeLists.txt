@@ -39,19 +39,21 @@ endif()
 # --- Core library (everything except main, so tests can link it) --------
 add_library(crystalvision_core STATIC
   src/capture.cpp
+  src/detect.cpp
+  src/detector.cpp
   src/frame.cpp
   src/paths.cpp
   src/x11.cpp
 )
 target_include_directories(crystalvision_core PUBLIC src)
-target_link_libraries(crystalvision_core PUBLIC crystalvision_options PkgConfig::XCB)
+target_link_libraries(crystalvision_core PUBLIC crystalvision_options PkgConfig::XCB OnnxRuntime::OnnxRuntime)
 target_compile_definitions(crystalvision_core PRIVATE
   CV_DEV_MODEL_DIR="${CMAKE_CURRENT_SOURCE_DIR}/models"
 )
 
 # --- App -----------------------------------------------------------------
 add_executable(crystalvision src/main.cpp)
-target_link_libraries(crystalvision PRIVATE crystalvision_core OnnxRuntime::OnnxRuntime)
+target_link_libraries(crystalvision PRIVATE crystalvision_core)
 
 # --- Tests ---------------------------------------------------------------
 option(CV_BUILD_TESTS "Build unit tests" ON)

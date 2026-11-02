@@ -13,3 +13,6 @@ compile_commands.json
 .idea/
 *.swp
 *~
+
+# Python reference environment (scripts/requirements-reference.txt)
+/.venv/
