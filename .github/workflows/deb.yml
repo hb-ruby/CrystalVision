@@ -17,7 +17,7 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install build dependencies
         run: |
@@ -28,7 +28,7 @@ jobs:
             libxcb-xfixes0-dev libxcb-shape0-dev libxcb-image0-dev
 
       - name: Cache model
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: models/640m.onnx
           key: nudenet-640m-v3.4
@@ -52,7 +52,7 @@ jobs:
           sudo apt-get install -y ./build/release/crystalvision_*.deb
           xvfb-run -a crystalvision
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: crystalvision-deb
           path: build/release/crystalvision_*.deb
