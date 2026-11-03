@@ -60,7 +60,9 @@ Inference uses at most 4 threads. Detections of the explicit `*_EXPOSED` labels 
 female breast, genitalia, anus) are covered with black boxes. The boxes are a click-through
 overlay window that the capture leaves out, so each scan still sees what's underneath. A box
 found by a sharper scan (0.5 or 1.0) stays up until a tick at the same or a sharper scale
-no longer finds it, so a cheap 0.333 tick can't uncover what only a full scan caught.
+no longer finds it, so a cheap 0.333 tick can't uncover what only a full scan caught. When a
+coarser tick finds the same area again, the held box grows to cover both finds instead of a
+second box being added.
 
 To check the detector against NudeNet's own Python code (needs `python3.12-venv`):
 

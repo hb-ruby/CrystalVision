@@ -59,12 +59,38 @@ void holdsSharperFindsThroughCoarserTicks() {
     CHECK(blocks.empty());
 }
 
+void mergesRepeatFindsIntoHeldBlocks() {
+    std::vector<crystal::Block> blocks;
+    crystal::updateBlocks(blocks, {det(kBreast, 100)}, 1.0f);
+
+    // Coarser ticks find the same area slightly shifted: one block, grown to cover both.
+    for (int i = 0; i < 3; ++i) crystal::updateBlocks(blocks, {det(kBreast, 102)}, 0.333f);
+    CHECK(blocks.size() == 1);
+    if (!blocks.empty()) {
+        CHECK(blocks[0].scale == 1.0f);
+        CHECK(blocks[0].box.x == 100 && blocks[0].box.w == 12);
+    }
+    crystal::updateBlocks(blocks, {det(kBreast, 101)}, 0.5f);
+    CHECK(blocks.size() == 1);
+
+    // A separate area is its own block, and goes with the next coarse tick.
+    crystal::updateBlocks(blocks, {det(kBreast, 102), det(kBreast, 0)}, 0.333f);
+    CHECK(blocks.size() == 2);
+    crystal::updateBlocks(blocks, {}, 0.333f);
+    CHECK(blocks.size() == 1);
+
+    // The full scan that no longer sees it clears the grown block too.
+    crystal::updateBlocks(blocks, {}, 1.0f);
+    CHECK(blocks.empty());
+}
+
 } // namespace
 
 int main() {
     followsTickSchedule();
     blocksOnlyExposedLabels();
     holdsSharperFindsThroughCoarserTicks();
+    mergesRepeatFindsIntoHeldBlocks();
     if (failures == 0) std::printf("monitor_test: all passed\n");
     return failures == 0 ? 0 : 1;
 }

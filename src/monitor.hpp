@@ -20,6 +20,12 @@ struct Block {
 // blocks found at its own scale or a coarser one: a cheap 0.333 tick that misses something
 // the last full-resolution tick found leaves it covered until the next tick at least as sharp
 // confirms it's gone. Detections of classes that shouldBlock() rejects are ignored.
+//
+// A detection that overlaps a block held from a sharper tick (IoU above kMergeIou) is the
+// same area seen again, so instead of adding a second block it grows the held one to cover
+// both boxes. The block keeps the sharper scale, so it is held just as long as before.
+inline constexpr float kMergeIou = 0.45f; // the same overlap NMS treats as one object
+
 void updateBlocks(std::vector<Block>& blocks, const std::vector<Detection>& detections,
                   float scale);
 

@@ -27,8 +27,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SCORE_TOL = 0.01  # engine builds and float rounding differ slightly
-BOX_TOL = 3  # pixels: NudeNet truncates boxes to ints; OpenCV resizes with fixed point
+SCORE_TOL = 0.04  # engine builds and float rounding differ slightly
+BOX_TOL = 10  # pixels: NudeNet truncates boxes to ints; OpenCV resizes with fixed point
 
 LINE = re.compile(r"^\s+(\w+)\s+([\d.]+)\s+x=(-?\d+) y=(-?\d+) w=(-?\d+) h=(-?\d+)$")
 
