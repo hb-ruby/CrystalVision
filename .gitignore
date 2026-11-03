@@ -16,3 +16,4 @@ compile_commands.json
 
 # Python reference environment (scripts/requirements-reference.txt)
 /.venv/
+__pycache__/

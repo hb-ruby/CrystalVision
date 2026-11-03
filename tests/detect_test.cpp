@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -48,7 +49,7 @@ void letterboxesWideImage() {
     std::vector<float> t;
     const auto lb = crystal::letterbox(f, 32, t);
     CHECK(t.size() == 3u * 32 * 32);
-    CHECK(near(lb.scale, 0.5f));
+    CHECK(near(lb.scaleX, 0.5f) && near(lb.scaleY, 0.5f));
 
     CHECK(near(at(t, 32, 0, 0, 0), 1.0f));   // R plane, scaled to [0, 1]
     CHECK(near(at(t, 32, 1, 0, 0), 0.0f));   // G plane
@@ -61,7 +62,7 @@ void letterboxesTallImage() {
     const auto f = solid(10, 40, 10, 20, 30); // 40 tall -> scale 0.5 -> 5x20, padding right
     std::vector<float> t;
     const auto lb = crystal::letterbox(f, 20, t);
-    CHECK(near(lb.scale, 0.5f));
+    CHECK(near(lb.scaleX, 0.5f) && near(lb.scaleY, 0.5f));
     CHECK(near(at(t, 20, 0, 0, 0), 10 / 255.0f));
     CHECK(near(at(t, 20, 1, 19, 4), 20 / 255.0f));
     CHECK(near(at(t, 20, 0, 0, 5), 0));
@@ -99,9 +100,66 @@ void blendsLastColumnWithPadding() {
     CHECK(near(at(t, 2, 0, 1, 1), 100 / 255.0f));
 }
 
+// NCHW value of a w x h tensor.
+float at(const std::vector<float>& t, int w, int h, int c, int y, int x) {
+    return t[static_cast<std::size_t>((c * h + y) * w + x)];
+}
+
+void scalesScreenToRectangularInput() {
+    // 1920x1080 at 0.333: 639x360 of image, padded up to 640x384 (multiples of 32).
+    const auto f = solid(1920, 1080, 255, 0, 51);
+    std::vector<float> t;
+    const auto in = crystal::scaleToInput(f, 0.333f, 32, t);
+    CHECK(in.width == 640 && in.height == 384);
+    CHECK(t.size() == 3u * 640 * 384);
+    CHECK(near(in.lb.scaleX, 639.0f / 1920) && near(in.lb.scaleY, 360.0f / 1080));
+    CHECK(near(at(t, 640, 384, 0, 0, 0), 1.0f));
+    CHECK(near(at(t, 640, 384, 2, 359, 638), 0.2f)); // last image pixel
+    CHECK(near(at(t, 640, 384, 0, 359, 639), 0));    // padding column
+    CHECK(near(at(t, 640, 384, 0, 360, 0), 0));      // padding row
+
+    const auto full = crystal::scaleToInput(f, 1.0f, 32, t);
+    CHECK(full.width == 1920 && full.height == 1088);
+    CHECK(near(full.lb.scaleX, 1) && near(full.lb.scaleY, 1));
+}
+
+void averagesAreasLikeOpenCv() {
+    // Shrinking by 3: each output pixel is the mean of a 3x3 block.
+    crystal::Frame f;
+    f.reset(6, 3);
+    for (int x = 0; x < 6; ++x)
+        for (int y = 0; y < 3; ++y)
+            f.rgb[static_cast<std::size_t>((y * 6 + x) * 3)] =
+                static_cast<std::uint8_t>(x * 30 + y);
+    std::vector<float> t;
+    const auto in = crystal::scaleToInput(f, 1.0f / 3, 4, t);
+    CHECK(in.width == 4 && in.height == 4);
+    CHECK(near(at(t, 4, 4, 0, 0, 0), 31 / 255.0f));  // mean of 0,30,60 plus rows 0,1,2
+    CHECK(near(at(t, 4, 4, 0, 0, 1), 121 / 255.0f)); // mean of 90,120,150 plus rows
+    CHECK(near(at(t, 4, 4, 0, 0, 2), 0));            // padding
+
+    // Shrinking 3 -> 2 (ratio 1.5): the middle pixel is split between both outputs,
+    // as cv2.resize(..., INTER_AREA) does: (0 + 90 / 2) / 1.5 and (90 / 2 + 180) / 1.5.
+    f.reset(3, 1);
+    f.rgb[0] = 0;
+    f.rgb[3] = 90;
+    f.rgb[6] = 180;
+    crystal::scaleToInput(f, 2.0f / 3, 1, t);
+    CHECK(near(at(t, 2, 1, 0, 0, 0), 30 / 255.0f));
+    CHECK(near(at(t, 2, 1, 0, 0, 1), 150 / 255.0f));
+
+    bool threw = false;
+    try {
+        crystal::scaleToInput(f, 1.5f, 32, t);
+    } catch (const std::invalid_argument&) {
+        threw = true;
+    }
+    CHECK(threw);
+}
+
 void mapsBoxesBackToSource() {
     // 1920x1080 into 640: scale 1/3, image in the top 360 rows.
-    crystal::Letterbox lb{1.0f / 3, 1920, 1080};
+    crystal::Letterbox lb{1.0f / 3, 1.0f / 3, 1920, 1080};
     const auto b = crystal::unletterbox({100, 100, 30, 60}, lb);
     CHECK(near(b.x, 300, 0.01f) && near(b.y, 300, 0.01f));
     CHECK(near(b.w, 90, 0.01f) && near(b.h, 180, 0.01f));
@@ -113,7 +171,7 @@ void mapsBoxesBackToSource() {
 
 void decodesOutputTensor() {
     // 3 classes, 3 anchors, identity letterbox. Layout: rows of `anchors` values.
-    crystal::Letterbox lb{1, 100, 100};
+    crystal::Letterbox lb{1, 1, 100, 100};
     const std::vector<float> out = {
         50,   20,   10,   // cx
         50,   20,   10,   // cy
@@ -184,6 +242,8 @@ int main() {
     letterboxesTallImage();
     interpolatesLikeOpenCv();
     blendsLastColumnWithPadding();
+    scalesScreenToRectangularInput();
+    averagesAreasLikeOpenCv();
     mapsBoxesBackToSource();
     decodesOutputTensor();
     suppressesOverlaps();

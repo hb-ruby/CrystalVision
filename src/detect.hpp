@@ -57,18 +57,35 @@ struct Detection {
     Box box;
 };
 
-// How the source image was placed into the square model input: scaled by `scale`, with
-// its top-left corner at the input's top-left corner.
+// How the source image was placed into the model input: scaled by `scaleX` and `scaleY`
+// (equal, or nearly so after rounding to whole pixels), with its top-left corner at the
+// input's top-left corner and black padding to the right and below.
 struct Letterbox {
-    float scale = 1; // input pixels per source pixel
+    float scaleX = 1; // input pixels per source pixel, horizontally
+    float scaleY = 1; // and vertically
     int srcWidth = 0;
     int srcHeight = 0;
+};
+
+// A rectangular model input made by scaleToInput.
+struct ScaledInput {
+    Letterbox lb;
+    int width = 0;  // tensor width, a multiple of the requested stride
+    int height = 0; // tensor height
 };
 
 // Scales `src` into a `size` x `size` NCHW float tensor, as if it were first padded with
 // black to a square and that square resized with OpenCV's INTER_LINEAR. `out` is resized
 // to 3 * size * size.
 Letterbox letterbox(const Frame& src, int size, std::vector<float>& out);
+
+// Shrinks `src` by `scale` (0 < scale <= 1) to round(width * scale) x round(height * scale)
+// by area averaging (OpenCV INTER_AREA), pads it with black on the right and bottom up to a
+// multiple of `stride` in each direction, and writes it into `out` as an NCHW float tensor.
+// No square letterbox: a 16:9 screen stays 16:9, so no input pixels are wasted on padding.
+// This is what scripts/scale-accuracy.py measures. Throws std::invalid_argument on a bad
+// scale or stride.
+ScaledInput scaleToInput(const Frame& src, float scale, int stride, std::vector<float>& out);
 
 // Maps a box from model-input pixels back to source pixels, clipped to the source.
 Box unletterbox(const Box& inputBox, const Letterbox& lb);

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 
 namespace crystal {
 
@@ -33,7 +34,97 @@ std::vector<Tap> taps(int srcLen, int paddedLen, int dstLen) {
     return t;
 }
 
+// One source pixel's share of a destination pixel when shrinking by area averaging.
+struct AreaTap {
+    int src;
+    float weight;
+};
+
+// Area-averaging weights for shrinking an axis of `srcLen` pixels to `dstLen` (<= srcLen):
+// destination pixel d covers source span [d * r, (d + 1) * r) with r = srcLen / dstLen, and
+// each source pixel is weighted by how much of it lies in that span. Destination pixel d's
+// taps are taps[first[d]] up to taps[first[d + 1]].
+void areaTaps(int srcLen, int dstLen, std::vector<int>& first, std::vector<AreaTap>& taps) {
+    first.assign(1, 0);
+    taps.clear();
+    const double ratio = static_cast<double>(srcLen) / static_cast<double>(dstLen);
+    for (int d = 0; d < dstLen; ++d) {
+        const double lo = d * ratio;
+        const double hi = std::min((d + 1) * ratio, static_cast<double>(srcLen));
+        for (int i = static_cast<int>(lo); i < srcLen && i < hi; ++i) {
+            const double overlap = std::min(hi, i + 1.0) - std::max(lo, static_cast<double>(i));
+            if (overlap > 1e-6) taps.push_back({i, static_cast<float>(overlap / ratio)});
+        }
+        first.push_back(static_cast<int>(taps.size()));
+    }
+}
+
+int roundUp(int v, int multiple) {
+    return (v + multiple - 1) / multiple * multiple;
+}
+
 } // namespace
+
+ScaledInput scaleToInput(const Frame& src, float scale, int stride, std::vector<float>& out) {
+    if (!(scale > 0 && scale <= 1)) throw std::invalid_argument{"scale must be in (0, 1]"};
+    if (stride <= 0) throw std::invalid_argument{"stride must be positive"};
+
+    ScaledInput in;
+    in.lb.srcWidth = src.width;
+    in.lb.srcHeight = src.height;
+    if (src.width <= 0 || src.height <= 0) {
+        out.clear();
+        return in;
+    }
+
+    const int sw = std::max(1, static_cast<int>(std::lround(src.width * double{scale})));
+    const int sh = std::max(1, static_cast<int>(std::lround(src.height * double{scale})));
+    in.width = roundUp(sw, stride);
+    in.height = roundUp(sh, stride);
+    in.lb.scaleX = static_cast<float>(sw) / static_cast<float>(src.width);
+    in.lb.scaleY = static_cast<float>(sh) / static_cast<float>(src.height);
+
+    const std::size_t pw = static_cast<std::size_t>(in.width);
+    const std::size_t plane = pw * static_cast<std::size_t>(in.height);
+    out.assign(3 * plane, 0.0f); // black padding
+    float* const planes[3] = {out.data(), out.data() + plane, out.data() + 2 * plane};
+
+    // Thread-local so the monitor loop doesn't reallocate these every tick.
+    thread_local std::vector<int> xFirst, yFirst;
+    thread_local std::vector<AreaTap> xTaps, yTaps;
+    thread_local std::vector<float> row; // one source-width row, already averaged vertically
+    areaTaps(src.width, sw, xFirst, xTaps);
+    areaTaps(src.height, sh, yFirst, yTaps);
+
+    const std::size_t srcStride = static_cast<std::size_t>(src.width) * 3;
+    row.resize(srcStride);
+    for (int dy = 0; dy < sh; ++dy) {
+        // Vertical pass: blend this output row's source rows into `row`.
+        std::fill(row.begin(), row.end(), 0.0f);
+        for (int t = yFirst[static_cast<std::size_t>(dy)];
+             t < yFirst[static_cast<std::size_t>(dy) + 1]; ++t) {
+            const AreaTap& ty = yTaps[static_cast<std::size_t>(t)];
+            const std::uint8_t* s = src.rgb.data() + static_cast<std::size_t>(ty.src) * srcStride;
+            for (std::size_t k = 0; k < srcStride; ++k) row[k] += s[k] * ty.weight;
+        }
+        // Horizontal pass: blend columns of `row` into the output planes.
+        const std::size_t outRow = static_cast<std::size_t>(dy) * pw;
+        for (int dx = 0; dx < sw; ++dx) {
+            float acc[3] = {0, 0, 0};
+            for (int t = xFirst[static_cast<std::size_t>(dx)];
+                 t < xFirst[static_cast<std::size_t>(dx) + 1]; ++t) {
+                const AreaTap& tx = xTaps[static_cast<std::size_t>(t)];
+                const float* p = row.data() + static_cast<std::size_t>(tx.src) * 3;
+                acc[0] += p[0] * tx.weight;
+                acc[1] += p[1] * tx.weight;
+                acc[2] += p[2] * tx.weight;
+            }
+            for (std::size_t c = 0; c < 3; ++c)
+                planes[c][outRow + static_cast<std::size_t>(dx)] = acc[c] * (1.0f / 255.0f);
+        }
+    }
+    return in;
+}
 
 Letterbox letterbox(const Frame& src, int size, std::vector<float>& out) {
     Letterbox lb;
@@ -45,7 +136,7 @@ Letterbox letterbox(const Frame& src, int size, std::vector<float>& out) {
     if (src.width <= 0 || src.height <= 0 || size <= 0) return lb;
 
     const int side = std::max(src.width, src.height); // the padded square
-    lb.scale = static_cast<float>(size) / static_cast<float>(side);
+    lb.scaleX = lb.scaleY = static_cast<float>(size) / static_cast<float>(side);
 
     const std::vector<Tap> xs = taps(src.width, side, size);
     const std::vector<Tap> ys = taps(src.height, side, size);
@@ -75,10 +166,10 @@ Letterbox letterbox(const Frame& src, int size, std::vector<float>& out) {
 Box unletterbox(const Box& in, const Letterbox& lb) {
     const auto w = static_cast<float>(lb.srcWidth);
     const auto h = static_cast<float>(lb.srcHeight);
-    const float x0 = std::clamp(in.x / lb.scale, 0.0f, w);
-    const float y0 = std::clamp(in.y / lb.scale, 0.0f, h);
-    const float x1 = std::clamp((in.x + in.w) / lb.scale, 0.0f, w);
-    const float y1 = std::clamp((in.y + in.h) / lb.scale, 0.0f, h);
+    const float x0 = std::clamp(in.x / lb.scaleX, 0.0f, w);
+    const float y0 = std::clamp(in.y / lb.scaleY, 0.0f, h);
+    const float x1 = std::clamp((in.x + in.w) / lb.scaleX, 0.0f, w);
+    const float y1 = std::clamp((in.y + in.h) / lb.scaleY, 0.0f, h);
     return {x0, y0, x1 - x0, y1 - y0};
 }
 

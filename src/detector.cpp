@@ -12,6 +12,8 @@ namespace {
 
 using Clock = std::chrono::steady_clock;
 
+constexpr int kStride = 32; // the model's largest downsampling step; inputs must be multiples
+
 double msSince(Clock::time_point t) {
     return std::chrono::duration<double, std::milli>(Clock::now() - t).count();
 }
@@ -43,6 +45,7 @@ Detector::Detector(const std::filesystem::path& model, Options opts)
     if (in.size() != 4 || (in[1] != 3 && in[1] != -1))
         throw std::runtime_error{"unexpected model input shape " + shapeString(in)};
     if (in[2] > 0) inputSize_ = static_cast<int>(in[2]);
+    dynamicInput_ = in[2] <= 0 && in[3] <= 0;
 
     // Output: [1, 4 + classes, anchors].
     const auto out = session_.GetOutputTypeInfo(0).GetTensorTypeAndShapeInfo().GetShape();
@@ -52,12 +55,30 @@ Detector::Detector(const std::filesystem::path& model, Options opts)
 }
 
 std::vector<Detection> Detector::detect(const Frame& image, Timing* timing) {
-    auto t = Clock::now();
+    const auto t = Clock::now();
     const Letterbox lb = letterbox(image, inputSize_, input_);
     if (timing) timing->preMs = msSince(t);
+    return run(inputSize_, inputSize_, lb, timing);
+}
 
-    t = Clock::now();
-    const std::array<std::int64_t, 4> inShape = {1, 3, inputSize_, inputSize_};
+std::vector<Detection> Detector::detect(const Frame& image, float scale, Timing* timing) {
+    if (!dynamicInput_)
+        throw std::logic_error{
+            "model has a fixed input size; scaled detection needs a dynamic one"};
+    const auto t = Clock::now();
+    const ScaledInput in = scaleToInput(image, scale, kStride, input_);
+    if (timing) timing->preMs = msSince(t);
+    if (in.width == 0 || in.height == 0) return {}; // empty image
+    return run(in.width, in.height, in.lb, timing);
+}
+
+std::vector<Detection> Detector::run(int width, int height, const Letterbox& lb, Timing* timing) {
+    if (timing) {
+        timing->inputWidth = width;
+        timing->inputHeight = height;
+    }
+    auto t = Clock::now();
+    const std::array<std::int64_t, 4> inShape = {1, 3, height, width};
     const Ort::MemoryInfo mem = Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault);
     Ort::Value inTensor = Ort::Value::CreateTensor<float>(mem, input_.data(), input_.size(),
                                                           inShape.data(), inShape.size());

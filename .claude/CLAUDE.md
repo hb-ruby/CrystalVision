@@ -29,9 +29,9 @@ Done:
 - [x] Screen capture via MIT-SHM, including the wallpaper under window layers (`--dump-frame`)
 - [x] Single-image NudeNet inference (`--detect`, `--detect-screen`), checked against Python NudeNet
 - [x] `.deb` packaging and CI build on `ubuntu-24.04`
+- [x] Continuous monitoring loop (`--monitor`): 1 s gap after each tick finishes; scale 0.333, every 5th tick 0.5, every 10th 1.0
 
 To do:
-- [ ] Continuous monitoring loop: capture → detect on an interval, keeping CPU use reasonable
 - [ ] Screen change detection: scan only the regions that actually changed since the last scan, each cropped and scaled as close to the model's 640px input as possible. Full-screen scans run on a much slower interval to spare CPU.
 - [ ] Overlay/blur windows over detected regions (excluded from capture, see Gotchas)
 - [ ] Settings: label selection, score threshold, scan interval

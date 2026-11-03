@@ -43,10 +43,18 @@ ctest --preset debug                                     # unit tests
 ./build/debug/crystalvision --dump-frame frame.ppm       # capture the screen once
 ./build/release/crystalvision --detect in.ppm out.ppm    # detect on an image, draw boxes
 ./build/release/crystalvision --detect-screen out.ppm    # detect on one screen capture
+./build/release/crystalvision --monitor                  # capture + detect every second
 ```
 
 `--detect` takes binary PPM images and prints each detection with its label, score, box,
 and timings. The output image is optional. Use a release build to get realistic timings.
+
+`--monitor` runs the detection loop until Ctrl+C. Each tick captures the whole screen,
+shrinks it, and runs the model on it, then waits one second *after* the tick finishes before
+starting the next. The shrink factor cycles so that most ticks are cheap: every 10th tick runs
+at full resolution, every other 5th tick at 0.5, and the rest at 0.333. Unlike `--detect`,
+the screen isn't letterboxed into a 640x640 square. It keeps its aspect ratio and is padded
+only to a multiple of 32 (the setup `scripts/scale-accuracy.py` measures).
 
 To check the detector against NudeNet's own Python code (needs `python3.12-venv`):
 
