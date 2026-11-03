@@ -33,10 +33,10 @@ Done:
 To do:
 - [ ] Continuous monitoring loop: capture → detect on an interval, keeping CPU use reasonable
 - [ ] Overlay/blur windows over detected regions (excluded from capture, see Gotchas)
-- [ ] User controls: tray icon or similar to pause/resume and quit
 - [ ] Settings: label selection, score threshold, scan interval
 - [ ] Autostart on login
 - [ ] First tagged release (`v0.1.0`) and install test on a clean Mint 22
+- [ ] User controls: still need to figure out. Blocking should not be able to be disabled
 
 ## Working with the user
 - Use plain English but keep technical terms and detail.
