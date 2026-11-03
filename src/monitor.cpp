@@ -26,7 +26,7 @@ void updateBlocks(std::vector<Block>& blocks, const std::vector<Detection>& dete
                   float scale) {
     std::erase_if(blocks, [&](const Block& b) { return b.scale <= scale; });
     for (const Detection& d : detections) {
-        if (!shouldBlock(d.classId)) continue;
+        if (!shouldBlock(d)) continue;
         // Only blocks held from sharper ticks are left to match: NMS already keeps this
         // tick's own detections apart.
         auto held = std::ranges::find_if(blocks, [&](const Block& b) {

@@ -34,7 +34,7 @@ Done:
 
 To do:
 - [ ] Screen change detection: scan only the regions that actually changed since the last scan, each cropped and scaled as close to the model's 640px input as possible. Full-screen scans run on a much slower interval to spare CPU.
-- [ ] Settings: label selection, score threshold, scan interval
+- [ ] Settings: label selection, score threshold (adjustable; fixed at 0.5 for now, `kBlockScore`), scan interval
 - [ ] Autostart on login
 - [ ] First tagged release (`v0.1.0`) and install test on a clean Mint 22
 - [ ] User controls: still need to figure out. Blocking should not be able to be disabled

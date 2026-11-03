@@ -73,6 +73,16 @@ struct Detection {
     Box box;
 };
 
+// The lowest score that gets a detection covered. Higher than the detector's own 0.25 cutoff
+// (Detector::Options::minScore, kept at NudeNet's value so its output still matches Python
+// NudeNet): on the local test set, 0.5 drops weak false positives while missing few nude images.
+inline constexpr float kBlockScore = 0.5f;
+
+// Whether this detection gets covered: a blocked class, scored at least kBlockScore.
+constexpr bool shouldBlock(const Detection& d) {
+    return d.score >= kBlockScore && shouldBlock(d.classId);
+}
+
 // How the source image was placed into the model input: scaled by `scaleX` and `scaleY`
 // (equal, or nearly so after rounding to whole pixels), with its top-left corner at the
 // input's top-left corner and black padding to the right and below.

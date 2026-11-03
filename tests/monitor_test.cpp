@@ -41,6 +41,16 @@ void blocksOnlyExposedLabels() {
     for (int id : {0, 1, 5, 7, 11, 13}) CHECK(!crystal::shouldBlock(id));
 }
 
+void blocksOnlyConfidentDetections() {
+    std::vector<crystal::Block> blocks;
+    crystal::updateBlocks(blocks,
+                          {{kBreast, crystal::kBlockScore, {0, 0, 10, 10}},
+                           {kBreast, crystal::kBlockScore - 0.01f, {50, 0, 10, 10}}},
+                          0.333f);
+    CHECK(blocks.size() == 1);
+    if (!blocks.empty()) CHECK(blocks[0].box.x == 0);
+}
+
 void holdsSharperFindsThroughCoarserTicks() {
     std::vector<crystal::Block> blocks;
     crystal::updateBlocks(blocks, {det(kBreast, 100)}, 1.0f); // found by a full scan
@@ -89,6 +99,7 @@ void mergesRepeatFindsIntoHeldBlocks() {
 int main() {
     followsTickSchedule();
     blocksOnlyExposedLabels();
+    blocksOnlyConfidentDetections();
     holdsSharperFindsThroughCoarserTicks();
     mergesRepeatFindsIntoHeldBlocks();
     if (failures == 0) std::printf("monitor_test: all passed\n");

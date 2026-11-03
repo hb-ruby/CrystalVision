@@ -19,7 +19,8 @@ struct Block {
 // Updates the covered areas after a tick at `scale` found `detections`. A tick only clears
 // blocks found at its own scale or a coarser one: a cheap 0.333 tick that misses something
 // the last full-resolution tick found leaves it covered until the next tick at least as sharp
-// confirms it's gone. Detections of classes that shouldBlock() rejects are ignored.
+// confirms it's gone. Detections that shouldBlock() rejects (wrong class, or a score below
+// kBlockScore) are ignored.
 //
 // A detection that overlaps a block held from a sharper tick (IoU above kMergeIou) is the
 // same area seen again, so instead of adding a second block it grows the held one to cover
