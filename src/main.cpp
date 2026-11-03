@@ -13,6 +13,7 @@
 #include "detector.hpp"
 #include "frame.hpp"
 #include "monitor.hpp"
+#include "overlay.hpp"
 #include "paths.hpp"
 #include "x11.hpp"
 
@@ -27,6 +28,7 @@
 #include <exception>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <pthread.h>
 #include <time.h>
@@ -181,7 +183,8 @@ int detectScreen(const char* outPath) {
 }
 
 // The monitoring loop: one tick (capture the screen, detect), then wait a second, then the
-// next tick. The wait starts only after a tick finishes, so a slow tick (a full-resolution
+// next tick. Exposed detections are covered with black boxes (see Monitor and Overlay).
+// The wait starts only after a tick finishes, so a slow tick (a full-resolution
 // one, say) pushes the next one back instead of piling up. Runs until SIGINT (Ctrl+C),
 // SIGTERM or SIGHUP; a signal that arrives mid-tick stops the loop once the tick is done.
 int monitor() {
@@ -200,7 +203,10 @@ int monitor() {
             std::fprintf(stderr, "error: model not found (run scripts/fetch-models.sh)\n");
             return EXIT_FAILURE;
         }
-        crystal::Detector detector{*model};
+        // Four inference threads at most, so a scan never takes over every core.
+        crystal::Detector::Options opts;
+        opts.threads = 4;
+        crystal::Detector detector{*model, opts};
         if (!detector.dynamicInput()) {
             std::fprintf(stderr,
                          "error: %s has a fixed input size; the monitor needs a model "
@@ -210,18 +216,24 @@ int monitor() {
         }
         crystal::x11::Connection x;
         crystal::Capturer capturer{x};
+        crystal::Overlay overlay{x};
+        capturer.exclude(overlay.window()); // analyse what's under the boxes, not the boxes
         crystal::Monitor mon{capturer, detector};
+        std::vector<crystal::Box> covered;
         std::printf("monitoring; Ctrl+C to stop\n");
 
         for (;;) {
             const auto t = mon.tick();
+            covered.clear();
+            for (const auto& b : t.blocks) covered.push_back(b.box);
+            overlay.show(covered);
             const auto& tm = t.timing;
             std::printf("tick %llu  scale %.3f  input %dx%d  capture %.0f ms  detect %.0f ms "
-                        "(pre %.0f, inference %.0f, post %.1f)  %zu detection(s)\n",
+                        "(pre %.0f, inference %.0f, post %.1f)  %zu detection(s), %zu covered\n",
                         static_cast<unsigned long long>(t.number), static_cast<double>(t.scale),
                         tm.inputWidth, tm.inputHeight, t.captureMs,
                         tm.preMs + tm.inferMs + tm.postMs, tm.preMs, tm.inferMs, tm.postMs,
-                        t.detections.size());
+                        t.detections.size(), t.blocks.size());
             for (const auto& d : t.detections) {
                 std::printf(
                     "  %-26s %.3f  x=%d y=%d w=%d h=%d\n",

@@ -10,6 +10,19 @@
 
 namespace crystal {
 
+// A screen area being covered, and the scale of the scan that found it.
+struct Block {
+    Box box;
+    float scale = 0;
+};
+
+// Updates the covered areas after a tick at `scale` found `detections`. A tick only clears
+// blocks found at its own scale or a coarser one: a cheap 0.333 tick that misses something
+// the last full-resolution tick found leaves it covered until the next tick at least as sharp
+// confirms it's gone. Detections of classes that shouldBlock() rejects are ignored.
+void updateBlocks(std::vector<Block>& blocks, const std::vector<Detection>& detections,
+                  float scale);
+
 // The continuous monitoring loop's work, one tick at a time. Each tick captures the whole
 // screen and runs the detector on it, at a scale that depends on the tick number (see
 // tickScale). Waiting between ticks is the caller's job, so the wait can start only once a
@@ -23,6 +36,7 @@ class Monitor {
         double captureMs = 0;
         Detector::Timing timing;           // includes the model input size used
         std::vector<Detection> detections; // in screen pixels, highest score first
+        std::vector<Block> blocks;         // what should be covered now (see updateBlocks)
     };
 
     // Both must outlive the monitor.
@@ -36,6 +50,7 @@ class Monitor {
     Detector& detector_;
     Frame frame_; // reused between ticks
     std::uint64_t ticks_ = 0;
+    std::vector<Block> blocks_;
 };
 
 // The detector scale for tick `number` (1-based): every 10th tick runs at full resolution,

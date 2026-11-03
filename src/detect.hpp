@@ -46,6 +46,22 @@ inline constexpr std::array<std::string_view, 18> kLabels = {
     "BUTTOCKS_COVERED",
 };
 
+// Whether a detection of this class gets covered: the explicit *_EXPOSED labels. The other
+// exposed ones (feet, armpits, belly, male breast) are ordinary clothing, and the covered and
+// face labels are only context. The same set as SCORED in scripts/scale-accuracy.py.
+constexpr bool shouldBlock(int classId) {
+    switch (classId) {
+    case 2:  // BUTTOCKS_EXPOSED
+    case 3:  // FEMALE_BREAST_EXPOSED
+    case 4:  // FEMALE_GENITALIA_EXPOSED
+    case 6:  // ANUS_EXPOSED
+    case 14: // MALE_GENITALIA_EXPOSED
+        return true;
+    default:
+        return false;
+    }
+}
+
 // A box in source-image pixels: top-left corner plus size.
 struct Box {
     float x = 0, y = 0, w = 0, h = 0;

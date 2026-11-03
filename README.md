@@ -56,6 +56,12 @@ at full resolution, every other 5th tick at 0.5, and the rest at 0.333. Unlike `
 the screen isn't letterboxed into a 640x640 square. It keeps its aspect ratio and is padded
 only to a multiple of 32 (the setup `scripts/scale-accuracy.py` measures).
 
+Inference uses at most 4 threads. Detections of the explicit `*_EXPOSED` labels (buttocks,
+female breast, genitalia, anus) are covered with black boxes. The boxes are a click-through
+overlay window that the capture leaves out, so each scan still sees what's underneath. A box
+found by a sharper scan (0.5 or 1.0) stays up until a tick at the same or a sharper scale
+no longer finds it, so a cheap 0.333 tick can't uncover what only a full scan caught.
+
 To check the detector against NudeNet's own Python code (needs `python3.12-venv`):
 
 ```sh

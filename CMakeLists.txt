@@ -43,6 +43,7 @@ add_library(crystalvision_core STATIC
   src/detector.cpp
   src/frame.cpp
   src/monitor.cpp
+  src/overlay.cpp
   src/paths.cpp
   src/x11.cpp
 )
