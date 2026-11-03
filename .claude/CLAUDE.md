@@ -22,5 +22,21 @@ Stack: C++20, ONNX Runtime C++ API, XCB (MIT-SHM capture; Composite with *automa
 - Model weights (`models/*.onnx`) aren't committed. Run `scripts/fetch-models.sh` after cloning.
 - Pushing changes to `.github/workflows/` needs a GitHub token with the `workflow` scope.
 
+## Roadmap
+Personal tracking. Tick items off as they land, and add new ones as they come up.
+
+Done:
+- [x] Screen capture via MIT-SHM, including the wallpaper under window layers (`--dump-frame`)
+- [x] Single-image NudeNet inference (`--detect`, `--detect-screen`), checked against Python NudeNet
+- [x] `.deb` packaging and CI build on `ubuntu-24.04`
+
+To do:
+- [ ] Continuous monitoring loop: capture → detect on an interval, keeping CPU use reasonable
+- [ ] Overlay/blur windows over detected regions (excluded from capture, see Gotchas)
+- [ ] User controls: tray icon or similar to pause/resume and quit
+- [ ] Settings: label selection, score threshold, scan interval
+- [ ] Autostart on login
+- [ ] First tagged release (`v0.1.0`) and install test on a clean Mint 22
+
 ## Working with the user
 - Use plain English but keep technical terms and detail.
