@@ -6,7 +6,7 @@ Build, packaging, and setup steps are in `README.md`. This file covers context t
 An X11 desktop app that detects nudity on screen using the NudeNet v3 ONNX detector.
 Stack: C++20, ONNX Runtime C++ API, XCB (MIT-SHM capture; Composite with *automatic* redirection so it doesn't fight the compositor).
 
-## Decisions (settled, don't revisit)
+## Decisions
 - **Model: NudeNet v3.4 640m**
 - **License: AGPL-3.0** (matches NudeNet).
 - **Target: Linux Mint 22 X11** (Ubuntu 24.04 base). Non-Debian distros are out of scope.
