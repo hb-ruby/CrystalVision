@@ -32,6 +32,7 @@ Done:
 
 To do:
 - [ ] Continuous monitoring loop: capture → detect on an interval, keeping CPU use reasonable
+- [ ] Screen change detection: scan only the regions that actually changed since the last scan, each cropped and scaled as close to the model's 640px input as possible. Full-screen scans run on a much slower interval to spare CPU.
 - [ ] Overlay/blur windows over detected regions (excluded from capture, see Gotchas)
 - [ ] Settings: label selection, score threshold, scan interval
 - [ ] Autostart on login
