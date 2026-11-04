@@ -55,8 +55,8 @@ next. How much it shrinks and how long it waits depend on the scan state:
 
 - **Calm** (the default): a 0.333 scan every 5 s, with every 6th at full resolution so small
   images (thumbnail grids) still get caught.
-- **Alert**: entered when a scan finds an exposed label (see below) or a covered genitalia,
-  breast, buttocks or anus label scoring 0.3 or more. Scans alternate 1.0 and 0.5, 0.5 s apart.
+- **Alert**: entered when a scan finds an exposed label (see below) or a covered female
+  genitalia or anus label, scoring 0.3 or more. Scans alternate 1.0 and 0.5, 0.5 s apart.
   It drops back to Calm 30 s after the last such find, but only once no boxes are held.
 
 Unlike `--detect`,

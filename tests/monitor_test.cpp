@@ -116,8 +116,8 @@ void triggersCoverBlockedAndWarningClassesFromLowerScore() {
     using crystal::triggersAlert;
     CHECK(triggersAlert({kBreast, crystal::kAlertScore, {}}));
     CHECK(!triggersAlert({kBreast, crystal::kAlertScore - 0.01f, {}}));
-    for (int id : {0, 15, 16, 17}) CHECK(triggersAlert({id, 0.3f, {}})); // covered warnings
-    for (int id : {1, 5, 7, 8, 12}) CHECK(!triggersAlert({id, 0.99f, {}}));
+    for (int id : {0, 15}) CHECK(triggersAlert({id, 0.3f, {}})); // covered warnings
+    for (int id : {1, 5, 7, 8, 12, 16, 17}) CHECK(!triggersAlert({id, 0.99f, {}}));
     // Anything that gets covered also triggers Alert.
     for (int id = 0; id < 18; ++id)
         if (crystal::shouldBlock(crystal::Detection{id, crystal::kBlockScore, {}}))

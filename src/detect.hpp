@@ -87,13 +87,13 @@ constexpr bool shouldBlock(const Detection& d) {
 // Lower than kBlockScore: the trigger only speeds up scanning, so it errs sensitive.
 inline constexpr float kAlertScore = 0.3f;
 
-// The covered labels that hint at nudity nearby without being covered themselves.
+// The covered labels that hint at nudity nearby without being covered themselves. Covered
+// breasts and buttocks are left out: they score high on ordinary photos of clothed people,
+// which would keep the monitor on Alert (and its full-resolution scans) for no reason.
 constexpr bool isWarning(int classId) {
     switch (classId) {
     case 0:  // FEMALE_GENITALIA_COVERED
     case 15: // ANUS_COVERED
-    case 16: // FEMALE_BREAST_COVERED
-    case 17: // BUTTOCKS_COVERED
         return true;
     default:
         return false;
