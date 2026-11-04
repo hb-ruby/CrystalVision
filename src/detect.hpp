@@ -83,6 +83,29 @@ constexpr bool shouldBlock(const Detection& d) {
     return d.score >= kBlockScore && shouldBlock(d.classId);
 }
 
+// The lowest score at which a detection puts the monitor into Alert (faster, sharper scans).
+// Lower than kBlockScore: the trigger only speeds up scanning, so it errs sensitive.
+inline constexpr float kAlertScore = 0.3f;
+
+// The covered labels that hint at nudity nearby without being covered themselves.
+constexpr bool isWarning(int classId) {
+    switch (classId) {
+    case 0:  // FEMALE_GENITALIA_COVERED
+    case 15: // ANUS_COVERED
+    case 16: // FEMALE_BREAST_COVERED
+    case 17: // BUTTOCKS_COVERED
+        return true;
+    default:
+        return false;
+    }
+}
+
+// Whether this detection puts the monitor into Alert: a blocked or warning class, scored at
+// least kAlertScore. Every detection shouldBlock() accepts also triggers Alert.
+constexpr bool triggersAlert(const Detection& d) {
+    return d.score >= kAlertScore && (shouldBlock(d.classId) || isWarning(d.classId));
+}
+
 // How the source image was placed into the model input: scaled by `scaleX` and `scaleY`
 // (equal, or nearly so after rounding to whole pixels), with its top-left corner at the
 // input's top-left corner and black padding to the right and below.

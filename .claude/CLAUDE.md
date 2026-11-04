@@ -31,13 +31,9 @@ Done:
 - [x] `.deb` packaging and CI build on `ubuntu-24.04`
 - [x] Continuous monitoring loop (`--monitor`): 1 s gap after each tick finishes; scale 0.333, every 5th tick 0.5, every 10th 1.0; inference capped at 4 threads
 - [x] Black-box overlay over `*_EXPOSED` detections: one shaped, click-through, override-redirect window, excluded from capture; sharper-scan finds held until a same-or-sharper tick clears them
+- [x] Calm/Alert scan states (`Scheduler`), replacing the fixed 1 s loop: Calm 0.333 every 5 s, every 6th at 1.0; Alert (any `triggersAlert` find, score ≥ 0.3) alternates 1.0/0.5 with 0.5 s gaps; back to Calm 30 s after the last trigger once no blocks are held
 
 To do:
-- [ ] Calm/Alert scan states, replacing the fixed 1 s loop. The app should be a light background process. A short window of uncaught images is acceptable, because the goal is to deter and restrict, not to catch every frame.
-  - **Calm** (default): 0.333 scan every 5 s, and every 6th scan at 1.0 so small images (thumbnail grids) still get caught.
-  - **Enter Alert** on any exposed class (the `shouldBlock` set) or warning class (`FEMALE_GENITALIA_COVERED`, `FEMALE_BREAST_COVERED`, `BUTTOCKS_COVERED`, `ANUS_COVERED`) scoring ≥ 0.3. This is lower than `kBlockScore`: the trigger only speeds up scanning, so it errs sensitive.
-  - **Alert**: scans alternate 1.0 and 0.5, with a 0.5 s gap after each one finishes.
-  - **Exit to Calm** after 30 s with no trigger, and only once a clean 1.0 scan has cleared every block. Calm's 0.333 scans can't clear blocks found by sharper scans (see `updateBlocks`), so leaving Alert with blocks still held would leave stale boxes on screen.
 - [ ] Screen change detection (Calm state only): before each 5 s Calm scan (0.333 or the every-6th 1.0), compare the captured screen with the one from the last scan. If it hasn't changed, skip inference, so an idle or static screen costs almost no CPU. Skipped scans still count toward the every-6th 1.0 scan. Alert scans always run.
   - **Grid:** split the screen into coarse cells (about 60 px, so 32×18 at 1920×1080). Store each cell's mean brightness, mean colour (chroma) and contrast (variance), sampling every 2nd–4th pixel. That's one pass over the frame, about 1–3 ms on one core, far cheaper than a 0.333 scan.
   - **Threshold:** scan if any *single* cell changed by more than a threshold. Using the largest cell change rather than the whole-screen average means a small image appearing isn't diluted by an otherwise static screen. Slightly scrolled text stays under the threshold, because each cell's average barely moves and grey text adds almost no chroma change. The value needs tuning on real screens (text PDFs, scrolling browser, thumbnail grids).

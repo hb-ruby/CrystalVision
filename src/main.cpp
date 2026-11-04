@@ -7,7 +7,8 @@
 //                                     with the detections drawn on it
 //   crystalvision --detect-screen [OUT.ppm]
 //                                     the same, on one capture of the screen
-//   crystalvision --monitor           capture and detect once a second until stopped
+//   crystalvision --monitor           keep scanning the screen and cover what's found,
+//                                     until stopped
 
 #include "capture.hpp"
 #include "detector.hpp"
@@ -182,11 +183,13 @@ int detectScreen(const char* outPath) {
     return detect(frame, outPath);
 }
 
-// The monitoring loop: one tick (capture the screen, detect), then wait a second, then the
-// next tick. Exposed detections are covered with black boxes (see Monitor and Overlay).
-// The wait starts only after a tick finishes, so a slow tick (a full-resolution
-// one, say) pushes the next one back instead of piling up. Runs until SIGINT (Ctrl+C),
-// SIGTERM or SIGHUP; a signal that arrives mid-tick stops the loop once the tick is done.
+// The monitoring loop: one tick (capture the screen, detect), then wait, then the next tick.
+// The scale and the wait come from the Calm/Alert schedule (see Scheduler): 5 s between
+// cheap scans while calm, 0.5 s between sharp ones on alert. Exposed detections are covered
+// with black boxes (see Monitor and Overlay). The wait starts only after a tick finishes, so
+// a slow tick (a full-resolution one, say) pushes the next one back instead of piling up. Runs
+// until SIGINT (Ctrl+C), SIGTERM or SIGHUP; a signal that arrives mid-tick stops the loop once the
+// tick is done.
 int monitor() {
     // Block the stop signals before ONNX Runtime starts its threads (they inherit the mask),
     // so they stay pending until sigtimedwait picks them up during the wait.
@@ -228,10 +231,10 @@ int monitor() {
             for (const auto& b : t.blocks) covered.push_back(b.box);
             overlay.show(covered);
             const auto& tm = t.timing;
-            std::printf("tick %llu  scale %.3f  input %dx%d  capture %.0f ms  detect %.0f ms "
+            std::printf("tick %llu  %s  scale %.3f  input %dx%d  capture %.0f ms  detect %.0f ms "
                         "(pre %.0f, inference %.0f, post %.1f)  %zu detection(s), %zu covered\n",
-                        static_cast<unsigned long long>(t.number), static_cast<double>(t.scale),
-                        tm.inputWidth, tm.inputHeight, t.captureMs,
+                        static_cast<unsigned long long>(t.number), crystal::toString(t.state),
+                        static_cast<double>(t.scale), tm.inputWidth, tm.inputHeight, t.captureMs,
                         tm.preMs + tm.inferMs + tm.postMs, tm.preMs, tm.inferMs, tm.postMs,
                         t.detections.size(), t.blocks.size());
             for (const auto& d : t.detections) {
@@ -242,16 +245,20 @@ int monitor() {
                     static_cast<int>(d.box.y), static_cast<int>(d.box.w),
                     static_cast<int>(d.box.h));
             }
+            if (t.next != t.state)
+                std::printf("-> %s (next scan in %lld ms)\n", crystal::toString(t.next),
+                            static_cast<long long>(t.gap.count()));
             std::fflush(stdout);
 
-            const timespec interval{1, 0};
+            const timespec interval{static_cast<time_t>(t.gap.count() / 1000),
+                                    static_cast<long>(t.gap.count() % 1000) * 1'000'000};
             const int sig = sigtimedwait(&stop, nullptr, &interval);
             if (sig > 0) {
                 std::printf("stopping (signal %d) after %llu tick(s)\n", sig,
                             static_cast<unsigned long long>(t.number));
                 return EXIT_SUCCESS;
             }
-            // sig == -1: EAGAIN means the second is up; EINTR (some other signal) just
+            // sig == -1: EAGAIN means the wait is over; EINTR (some other signal) just
             // starts the next tick a little early.
         }
     } catch (const std::exception& e) { // Ort::Exception derives from std::exception

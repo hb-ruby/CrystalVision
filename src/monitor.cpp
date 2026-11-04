@@ -5,10 +5,32 @@
 
 namespace crystal {
 
-float tickScale(std::uint64_t number) {
-    if (number % 10 == 0) return 1.0f;
-    if (number % 5 == 0) return 0.5f;
-    return 0.333f;
+const char* toString(ScanState s) {
+    return s == ScanState::Calm ? "calm" : "alert";
+}
+
+float Scheduler::nextScale() const {
+    if (state_ == ScanState::Alert) return alertScans_ % 2 == 0 ? 1.0f : 0.5f;
+    const auto every = static_cast<std::uint64_t>(opts_.calmFullEvery);
+    return (calmScans_ + 1) % every == 0 ? 1.0f : 0.333f;
+}
+
+void Scheduler::record(bool triggered, std::size_t blocksHeld, Clock::time_point finished) {
+    if (triggered) lastTrigger_ = finished;
+
+    if (state_ == ScanState::Calm) {
+        ++calmScans_;
+        if (triggered) {
+            state_ = ScanState::Alert;
+            alertScans_ = 0;
+        }
+        return;
+    }
+    ++alertScans_;
+    if (!triggered && blocksHeld == 0 && finished - lastTrigger_ >= opts_.alertHold) {
+        state_ = ScanState::Calm;
+        calmScans_ = 0;
+    }
 }
 
 namespace {
@@ -42,7 +64,8 @@ void updateBlocks(std::vector<Block>& blocks, const std::vector<Detection>& dete
 Monitor::Tick Monitor::tick() {
     Tick t;
     t.number = ++ticks_;
-    t.scale = tickScale(t.number);
+    t.state = scheduler_.state();
+    t.scale = scheduler_.nextScale();
 
     const auto start = std::chrono::steady_clock::now();
     t.capture = capturer_.capture(frame_);
@@ -52,6 +75,12 @@ Monitor::Tick Monitor::tick() {
     t.detections = detector_.detect(frame_, t.scale, &t.timing);
     updateBlocks(blocks_, t.detections, t.scale);
     t.blocks = blocks_;
+
+    t.triggered =
+        std::ranges::any_of(t.detections, [](const Detection& d) { return triggersAlert(d); });
+    scheduler_.record(t.triggered, blocks_.size(), std::chrono::steady_clock::now());
+    t.next = scheduler_.state();
+    t.gap = scheduler_.gap();
     return t;
 }
 

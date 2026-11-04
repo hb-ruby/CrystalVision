@@ -43,16 +43,23 @@ ctest --preset debug                                     # unit tests
 ./build/debug/crystalvision --dump-frame frame.ppm       # capture the screen once
 ./build/release/crystalvision --detect in.ppm out.ppm    # detect on an image, draw boxes
 ./build/release/crystalvision --detect-screen out.ppm    # detect on one screen capture
-./build/release/crystalvision --monitor                  # capture + detect every second
+./build/release/crystalvision --monitor                  # keep scanning the screen, cover finds
 ```
 
 `--detect` takes binary PPM images and prints each detection with its label, score, box,
 and timings. The output image is optional. Use a release build to get realistic timings.
 
 `--monitor` runs the detection loop until Ctrl+C. Each tick captures the whole screen,
-shrinks it, and runs the model on it, then waits one second *after* the tick finishes before
-starting the next. The shrink factor cycles so that most ticks are cheap: every 10th tick runs
-at full resolution, every other 5th tick at 0.5, and the rest at 0.333. Unlike `--detect`,
+shrinks it, and runs the model on it, then waits *after* the tick finishes before starting the
+next. How much it shrinks and how long it waits depend on the scan state:
+
+- **Calm** (the default): a 0.333 scan every 5 s, with every 6th at full resolution so small
+  images (thumbnail grids) still get caught.
+- **Alert**: entered when a scan finds an exposed label (see below) or a covered genitalia,
+  breast, buttocks or anus label scoring 0.3 or more. Scans alternate 1.0 and 0.5, 0.5 s apart.
+  It drops back to Calm 30 s after the last such find, but only once no boxes are held.
+
+Unlike `--detect`,
 the screen isn't letterboxed into a 640x640 square. It keeps its aspect ratio and is padded
 only to a multiple of 32 (the setup `scripts/scale-accuracy.py` measures).
 
