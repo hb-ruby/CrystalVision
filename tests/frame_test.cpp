@@ -1,5 +1,6 @@
 // Unit tests for the pixel-pasting logic in frame.cpp (no X server needed).
 
+#include "check.hpp"
 #include "frame.hpp"
 
 #include <cstdint>
@@ -7,16 +8,6 @@
 #include <vector>
 
 namespace {
-
-int failures = 0;
-
-#define CHECK(cond)                                                                                \
-    do {                                                                                           \
-        if (!(cond)) {                                                                             \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond);          \
-            ++failures;                                                                            \
-        }                                                                                          \
-    } while (0)
 
 struct Rgb {
     int r, g, b;
@@ -100,6 +91,5 @@ int main() {
     clipsAtEveryEdge();
     respectsStride();
     blendsPremultipliedAlpha();
-    if (failures == 0) std::printf("frame_test: all passed\n");
-    return failures == 0 ? 0 : 1;
+    return check::finish("frame_test");
 }

@@ -1,6 +1,7 @@
 // Unit tests for the screen change detection. No model or X server needed.
 
 #include "change.hpp"
+#include "check.hpp"
 
 #include <chrono>
 #include <cmath>
@@ -8,16 +9,6 @@
 #include <cstdio>
 
 namespace {
-
-int failures = 0;
-
-#define CHECK(cond)                                                                                \
-    do {                                                                                           \
-        if (!(cond)) {                                                                             \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond);          \
-            ++failures;                                                                            \
-        }                                                                                          \
-    } while (0)
 
 using namespace std::chrono_literals;
 using Clock = crystal::ChangeGate::Clock;
@@ -163,6 +154,5 @@ int main() {
     gateComparesWithTheLastScanThatRan();
     gateComparesFullScansWithTheLastFullScan();
     gateForcesAScanAfterMaxSkip();
-    if (failures == 0) std::printf("change_test: all passed\n");
-    return failures == 0 ? 0 : 1;
+    return check::finish("change_test");
 }

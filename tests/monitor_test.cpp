@@ -1,6 +1,7 @@
 // Unit tests for the monitoring loop's Calm/Alert schedule and block holding. No model or X server
 // needed.
 
+#include "check.hpp"
 #include "monitor.hpp"
 
 #include <chrono>
@@ -8,16 +9,6 @@
 #include <vector>
 
 namespace {
-
-int failures = 0;
-
-#define CHECK(cond)                                                                                \
-    do {                                                                                           \
-        if (!(cond)) {                                                                             \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond);          \
-            ++failures;                                                                            \
-        }                                                                                          \
-    } while (0)
 
 constexpr int kBreast = 3; // FEMALE_BREAST_EXPOSED
 constexpr int kFace = 1;   // FACE_FEMALE
@@ -181,6 +172,5 @@ int main() {
     blocksOnlyConfidentDetections();
     holdsSharperFindsThroughCoarserTicks();
     mergesRepeatFindsIntoHeldBlocks();
-    if (failures == 0) std::printf("monitor_test: all passed\n");
-    return failures == 0 ? 0 : 1;
+    return check::finish("monitor_test");
 }

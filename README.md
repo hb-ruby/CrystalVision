@@ -43,13 +43,19 @@ cmake --preset debug && cmake --build --preset debug
 Presets: `debug`, `asan` (AddressSanitizer + UBSan), `release`.
 
 ```sh
-ctest --preset debug                                     # unit tests
+ctest --preset debug                                     # tests
+ctest --preset asan                                      # the same, checking memory and UB
 ./build/debug/crystalvision --dump-frame frame.ppm       # capture the screen once
 ./build/release/crystalvision --detect in.ppm out.ppm    # detect on an image, draw boxes
 ./build/release/crystalvision --detect-screen out.ppm    # detect on one screen capture
 ./build/release/crystalvision --monitor                  # keep scanning the screen, cover finds
 ./build/release/crystalvision --compare a.ppm b.ppm      # how much change detection sees
 ```
+
+`x11_test` (capture and overlay) needs `$DISPLAY` and `detector_test` needs the model; each is
+skipped without it. `x11_test` briefly shows a small red window and a black box on the desktop.
+The `asan` preset runs every test under AddressSanitizer, LeakSanitizer and UBSan, and any
+finding fails the test.
 
 `--detect` takes binary PPM images and prints each detection with its label, score, box,
 and timings. The output image is optional. Use a release build to get realistic timings.

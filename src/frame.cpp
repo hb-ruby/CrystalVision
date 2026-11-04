@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <fstream>
 #include <string>
+#include <system_error>
 
 namespace crystal {
 
@@ -110,6 +111,16 @@ bool readPpm(const std::filesystem::path& path, Frame& out, std::string& error) 
     }
     in.get(); // the single whitespace byte that ends the header
 
+    // Check the file holds all the pixels before allocating for them: the header alone can
+    // ask for gigabytes.
+    const auto bytes = static_cast<std::size_t>(w) * static_cast<std::size_t>(h) * 3;
+    std::error_code ec;
+    const auto size = std::filesystem::file_size(path, ec);
+    const auto pos = in.tellg();
+    if (ec || !in || pos < 0 || size < static_cast<std::uintmax_t>(pos) + bytes) {
+        error = "PPM pixel data is truncated";
+        return false;
+    }
     out.reset(w, h);
     in.read(reinterpret_cast<char*>(out.rgb.data()), static_cast<std::streamsize>(out.rgb.size()));
     if (!in) {
@@ -121,6 +132,7 @@ bool readPpm(const std::filesystem::path& path, Frame& out, std::string& error) 
 
 void drawRect(Frame& frame, int x, int y, int w, int h, std::uint8_t r, std::uint8_t g,
               std::uint8_t b, int thickness) {
+    if (w <= 0 || h <= 0) return;
     auto fill = [&](int x0, int y0, int x1, int y1) { // half-open, clipped
         x0 = std::max(x0, 0);
         y0 = std::max(y0, 0);

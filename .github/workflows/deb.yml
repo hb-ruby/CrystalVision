@@ -43,8 +43,16 @@ jobs:
           cmake --preset release
           cmake --build --preset release
 
-      - name: Unit tests
-        run: ctest --preset release
+      # Under a virtual X server, so the capture/overlay and model tests run instead of skipping.
+      # The screen is set explicitly: the tests need 24-bit colour.
+      - name: Tests
+        run: xvfb-run -a -s "-screen 0 1280x800x24" ctest --preset release
+
+      - name: Tests under AddressSanitizer, LeakSanitizer and UBSan
+        run: |
+          cmake --preset asan
+          cmake --build --preset asan
+          xvfb-run -a -s "-screen 0 1280x800x24" ctest --preset asan
 
       - name: Package
         working-directory: build/release

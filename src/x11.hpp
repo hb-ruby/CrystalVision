@@ -25,6 +25,12 @@ class Connection {
 
     bool hasExtension(xcb_extension_t* ext) const;
 
+    // Frees every event and error waiting on the connection; returns how many were errors.
+    // Nothing here selects events, but the server sends some to every client (MappingNotify
+    // on a keyboard layout change), and errors from unchecked requests queue up the same way.
+    // Left unread they pile up in memory, so a long-running loop must call this regularly.
+    int discardEvents();
+
   private:
     struct Disconnect {
         void operator()(xcb_connection_t* c) const { xcb_disconnect(c); }

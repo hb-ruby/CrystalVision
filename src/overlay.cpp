@@ -2,7 +2,6 @@
 
 #include <xcb/shape.h>
 
-#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
@@ -17,6 +16,11 @@ void setShape(xcb_connection_t* c, xcb_window_t w, xcb_shape_kind_t kind,
               std::span<const xcb_rectangle_t> rects) {
     xcb_shape_rectangles(c, XCB_SHAPE_SO_SET, kind, XCB_CLIP_ORDERING_UNSORTED, w, 0, 0,
                          static_cast<std::uint32_t>(rects.size()), rects.data());
+}
+
+// Clamps `v` to [0, hi] before converting it, so no value (huge, infinite, NaN) overflows int.
+int toPixel(float v, int hi) {
+    return v > 0 ? (v < static_cast<float>(hi) ? static_cast<int>(v) : hi) : 0;
 }
 
 void setString(xcb_connection_t* c, xcb_window_t w, xcb_atom_t prop, const char* value,
@@ -93,10 +97,10 @@ void Overlay::show(std::span<const Box> boxes) {
     // Round outwards so a box is never smaller than the detection.
     rects_.clear();
     for (const Box& b : boxes) {
-        const int x0 = std::clamp(static_cast<int>(std::floor(b.x)), 0, width_);
-        const int y0 = std::clamp(static_cast<int>(std::floor(b.y)), 0, height_);
-        const int x1 = std::clamp(static_cast<int>(std::ceil(b.x + b.w)), 0, width_);
-        const int y1 = std::clamp(static_cast<int>(std::ceil(b.y + b.h)), 0, height_);
+        const int x0 = toPixel(std::floor(b.x), width_);
+        const int y0 = toPixel(std::floor(b.y), height_);
+        const int x1 = toPixel(std::ceil(b.x + b.w), width_);
+        const int y1 = toPixel(std::ceil(b.y + b.h), height_);
         if (x1 > x0 && y1 > y0)
             rects_.push_back({static_cast<std::int16_t>(x0), static_cast<std::int16_t>(y0),
                               static_cast<std::uint16_t>(x1 - x0),

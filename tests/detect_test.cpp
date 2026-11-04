@@ -1,6 +1,7 @@
 // Unit tests for detect.cpp (letterbox, decode, NMS) and the PPM/drawing helpers in
 // frame.cpp. No model or X server needed.
 
+#include "check.hpp"
 #include "detect.hpp"
 #include "frame.hpp"
 
@@ -12,16 +13,6 @@
 #include <vector>
 
 namespace {
-
-int failures = 0;
-
-#define CHECK(cond)                                                                                \
-    do {                                                                                           \
-        if (!(cond)) {                                                                             \
-            std::fprintf(stderr, "%s:%d: CHECK failed: %s\n", __FILE__, __LINE__, #cond);          \
-            ++failures;                                                                            \
-        }                                                                                          \
-    } while (0)
 
 bool near(float a, float b, float tol = 1e-3f) {
     return std::fabs(a - b) <= tol;
@@ -249,6 +240,5 @@ int main() {
     suppressesOverlaps();
     roundTripsPpm();
     drawsClippedRectangles();
-    if (failures == 0) std::printf("detect_test: all passed\n");
-    return failures == 0 ? 0 : 1;
+    return check::finish("detect_test");
 }

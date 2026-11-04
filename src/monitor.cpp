@@ -11,7 +11,7 @@ const char* toString(ScanState s) {
 
 float Scheduler::nextScale() const {
     if (state_ == ScanState::Alert) return alertScans_ % 2 == 0 ? 1.0f : 0.5f;
-    const auto every = static_cast<std::uint64_t>(opts_.calmFullEvery);
+    const auto every = static_cast<std::uint64_t>(std::max(opts_.calmFullEvery, 1));
     return (calmScans_ + 1) % every == 0 ? 1.0f : 0.333f;
 }
 

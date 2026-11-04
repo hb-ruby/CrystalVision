@@ -131,9 +131,13 @@ Letterbox letterbox(const Frame& src, int size, std::vector<float>& out) {
     lb.srcWidth = src.width;
     lb.srcHeight = src.height;
 
+    if (size <= 0) {
+        out.clear();
+        return lb;
+    }
     const std::size_t plane = static_cast<std::size_t>(size) * static_cast<std::size_t>(size);
     out.assign(3 * plane, 0.0f); // black padding
-    if (src.width <= 0 || src.height <= 0 || size <= 0) return lb;
+    if (src.width <= 0 || src.height <= 0) return lb;
 
     const int side = std::max(src.width, src.height); // the padded square
     lb.scaleX = lb.scaleY = static_cast<float>(size) / static_cast<float>(side);
@@ -176,7 +180,7 @@ Box unletterbox(const Box& in, const Letterbox& lb) {
 std::vector<Detection> decode(std::span<const float> output, std::size_t classes,
                               std::size_t anchors, const Letterbox& lb, float minScore) {
     std::vector<Detection> dets;
-    if (output.size() < (4 + classes) * anchors) return dets;
+    if (classes == 0 || output.size() < (4 + classes) * anchors) return dets;
 
     // Row r holds attribute r for every anchor, so anchor i's value is row(r)[i].
     auto row = [&](std::size_t r) { return output.data() + r * anchors; };
@@ -190,11 +194,11 @@ std::vector<Detection> decode(std::span<const float> output, std::size_t classes
                 best = c;
             }
         }
-        if (bestScore < minScore) continue;
+        if (!std::isfinite(bestScore) || bestScore < minScore) continue; // NaN would break nms
 
         const float cx = row(0)[i], cy = row(1)[i], w = row(2)[i], h = row(3)[i];
         const Box box = unletterbox({cx - w / 2, cy - h / 2, w, h}, lb);
-        if (box.w <= 0 || box.h <= 0) continue; // entirely in the padding
+        if (!(box.w > 0 && box.h > 0)) continue; // entirely in the padding, or NaN
         dets.push_back({static_cast<int>(best), bestScore, box});
     }
     return dets;

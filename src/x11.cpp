@@ -20,4 +20,11 @@ bool Connection::hasExtension(xcb_extension_t* ext) const {
     return r != nullptr && r->present;
 }
 
+int Connection::discardEvents() {
+    int errors = 0;
+    while (Reply<xcb_generic_event_t> e{xcb_poll_for_event(conn_.get())})
+        if (e->response_type == 0) ++errors;
+    return errors;
+}
+
 } // namespace crystal::x11

@@ -27,7 +27,7 @@ std::optional<fs::path> findModel() {
     if (!ec) {
         fs::path installed =
             exe.parent_path() / ".." / "share" / "crystalvision" / "models" / kModelFile;
-        if (isFile(installed)) return fs::weakly_canonical(installed, ec);
+        if (isFile(installed)) return installed.lexically_normal();
     }
 
 #ifdef CV_DEV_MODEL_DIR

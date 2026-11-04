@@ -31,9 +31,14 @@ include(OnnxRuntime)
 # --- Shared settings for all our targets ---------------------------------
 add_library(crystalvision_options INTERFACE)
 target_compile_options(crystalvision_options INTERFACE -Wall -Wextra -Wpedantic -Wshadow -Wconversion)
+# Bounds-check std::vector/span indexing and other libstdc++ preconditions in debug builds.
+target_compile_definitions(crystalvision_options INTERFACE $<$<CONFIG:Debug>:_GLIBCXX_ASSERTIONS>)
 if(CV_ENABLE_ASAN)
-  target_compile_options(crystalvision_options INTERFACE -fsanitize=address,undefined -fno-omit-frame-pointer)
-  target_link_options(crystalvision_options INTERFACE -fsanitize=address,undefined)
+  # float-cast-overflow isn't part of "undefined" in GCC; no-recover makes any UB a failure
+  # (exit code) instead of a message the tests would pass straight over.
+  set(_cv_sanitize -fsanitize=address,undefined,float-cast-overflow -fno-sanitize-recover=all)
+  target_compile_options(crystalvision_options INTERFACE ${_cv_sanitize} -fno-omit-frame-pointer)
+  target_link_options(crystalvision_options INTERFACE ${_cv_sanitize})
 endif()
 
 # --- Core library (everything except main, so tests can link it) --------
