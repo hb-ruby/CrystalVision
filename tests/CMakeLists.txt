@@ -9,3 +9,7 @@ add_test(NAME detect_test COMMAND detect_test)
 add_executable(monitor_test monitor_test.cpp)
 target_link_libraries(monitor_test PRIVATE crystalvision_core)
 add_test(NAME monitor_test COMMAND monitor_test)
+
+add_executable(change_test change_test.cpp)
+target_link_libraries(change_test PRIVATE crystalvision_core)
+add_test(NAME change_test COMMAND change_test)

@@ -32,14 +32,10 @@ Done:
 - [x] Continuous monitoring loop (`--monitor`): 1 s gap after each tick finishes; scale 0.333, every 5th tick 0.5, every 10th 1.0; inference capped at 4 threads
 - [x] Black-box overlay over `*_EXPOSED` detections: one shaped, click-through, override-redirect window, excluded from capture; sharper-scan finds held until a same-or-sharper tick clears them
 - [x] Calm/Alert scan states (`Scheduler`), replacing the fixed 1 s loop: Calm 0.333 every 5 s, every 6th at 1.0; Alert (any `triggersAlert` find, score ≥ 0.3) alternates 1.0/0.5 with 0.5 s gaps; back to Calm 30 s after the last trigger once no blocks are held
+- [x] Screen change detection (`ChangeGate`, Calm only): skips a scan if no 60 px cell's mean colour moved > 5 or brightness > 45 since the last scan that ran (1.0 scans: since the last 1.0 scan); forced scan at least every 60 s. Contrast was dropped and brightness needs a high threshold: scrolling text moves both as much as a thumbnail does; only colour separates them. Weak spots: small black-and-white images, and colourful text (syntax highlighting, coloured UI) scrolling triggers scans
 
 To do:
-- [ ] Screen change detection (Calm state only): before each 5 s Calm scan (0.333 or the every-6th 1.0), compare the captured screen with the one from the last scan. If it hasn't changed, skip inference, so an idle or static screen costs almost no CPU. Skipped scans still count toward the every-6th 1.0 scan. Alert scans always run.
-  - **Grid:** split the screen into coarse cells (about 60 px, so 32×18 at 1920×1080). Store each cell's mean brightness, mean colour (chroma) and contrast (variance), sampling every 2nd–4th pixel. That's one pass over the frame, about 1–3 ms on one core, far cheaper than a 0.333 scan.
-  - **Threshold:** scan if any *single* cell changed by more than a threshold. Using the largest cell change rather than the whole-screen average means a small image appearing isn't diluted by an otherwise static screen. Slightly scrolled text stays under the threshold, because each cell's average barely moves and grey text adds almost no chroma change. The value needs tuning on real screens (text PDFs, scrolling browser, thumbnail grids).
-  - **Compare against the last scan that ran**, not the last capture, so slow scrolling can't creep under the threshold 5 s at a time and add up to an unscanned new page.
-  - **Safety net:** force a real scan after a run of skips (at least every 60 s), so a missed change or a bad threshold can't leave the screen unscanned indefinitely.
-- [ ] Settings: label selection, score thresholds (adjustable; fixed for now at 0.5 to block, `kBlockScore`, and 0.3 to enter Alert), Calm/Alert intervals and exit time
+- [ ] Settings: label selection, score thresholds (adjustable; fixed for now at 0.5 to block, `kBlockScore`, and 0.3 to enter Alert), Calm/Alert intervals and exit time, change thresholds
 - [ ] Autostart on login
 - [ ] First tagged release (`v0.1.0`) and install test on a clean Mint 22
 - [ ] User controls: still need to figure out. Blocking should not be able to be disabled

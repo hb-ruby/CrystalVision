@@ -1,6 +1,7 @@
 #pragma once
 
 #include "capture.hpp"
+#include "change.hpp"
 #include "detect.hpp"
 #include "detector.hpp"
 #include "frame.hpp"
@@ -8,6 +9,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace crystal {
@@ -88,7 +90,8 @@ class Scheduler {
 };
 
 // The continuous monitoring loop's work, one tick at a time. Each tick captures the whole
-// screen and runs the detector on it, at the scale the Scheduler picks. Waiting between ticks
+// screen and runs the detector on it, at the scale the Scheduler picks, except that a Calm
+// tick skips the detector if the screen hasn't changed (see ChangeGate). Waiting between ticks
 // is the caller's job (for Tick::gap), so the wait can start only once a tick has finished
 // and can be cut short by a signal.
 class Monitor {
@@ -96,20 +99,24 @@ class Monitor {
     struct Tick {
         std::uint64_t number = 0; // 1 for the first tick
         float scale = 0;
-        ScanState state{};               // the state this tick ran in
-        ScanState next{};                // the state for the next tick
-        std::chrono::milliseconds gap{}; // how long to wait before the next tick
-        bool triggered = false;          // found something that triggers Alert
+        ScanState state{};                // the state this tick ran in
+        ScanState next{};                 // the state for the next tick
+        std::chrono::milliseconds gap{};  // how long to wait before the next tick
+        bool triggered = false;           // found something that triggers Alert
+        bool skipped = false;             // unchanged Calm screen: no detection ran
+        std::optional<GridChange> change; // against the gate's reference, if it has one
         Capturer::Stats capture;
         double captureMs = 0;
+        double changeMs = 0;
         Detector::Timing timing;           // includes the model input size used
         std::vector<Detection> detections; // in screen pixels, highest score first
         std::vector<Block> blocks;         // what should be covered now (see updateBlocks)
     };
 
     // Both must outlive the monitor.
-    Monitor(Capturer& capturer, Detector& detector, ScheduleOptions opts = {})
-        : capturer_{capturer}, detector_{detector}, scheduler_{opts} {}
+    Monitor(Capturer& capturer, Detector& detector, ScheduleOptions schedule = {},
+            ChangeGate::Options change = {})
+        : capturer_{capturer}, detector_{detector}, scheduler_{schedule}, gate_{change} {}
 
     // Runs the next tick. Throws whatever capture or detection throws.
     Tick tick();
@@ -118,6 +125,7 @@ class Monitor {
     Capturer& capturer_;
     Detector& detector_;
     Scheduler scheduler_;
+    ChangeGate gate_;
     Frame frame_; // reused between ticks
     std::uint64_t ticks_ = 0;
     std::vector<Block> blocks_;

@@ -72,12 +72,27 @@ Monitor::Tick Monitor::tick() {
     t.captureMs =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
 
-    t.detections = detector_.detect(frame_, t.scale, &t.timing);
-    updateBlocks(blocks_, t.detections, t.scale);
+    // Summarised on every tick, Alert ones too, so the gate always compares with the screen
+    // the last scan actually saw.
+    const auto summarized = std::chrono::steady_clock::now();
+    const ScreenGrid grid = summarize(frame_);
+    t.changeMs =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - summarized)
+            .count();
+    t.change = gate_.change(grid, t.scale);
+
+    if (t.state == ScanState::Calm && gate_.canSkip(grid, t.scale, start)) {
+        t.skipped = true; // blocks stay as they were
+    } else {
+        t.detections = detector_.detect(frame_, t.scale, &t.timing);
+        updateBlocks(blocks_, t.detections, t.scale);
+        gate_.ran(grid, t.scale, start);
+    }
     t.blocks = blocks_;
 
     t.triggered =
         std::ranges::any_of(t.detections, [](const Detection& d) { return triggersAlert(d); });
+    // A skipped scan still counts toward Calm's every-6th full scan.
     scheduler_.record(t.triggered, blocks_.size(), std::chrono::steady_clock::now());
     t.next = scheduler_.state();
     t.gap = scheduler_.gap();

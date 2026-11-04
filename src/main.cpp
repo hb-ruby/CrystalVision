@@ -7,10 +7,14 @@
 //                                     with the detections drawn on it
 //   crystalvision --detect-screen [OUT.ppm]
 //                                     the same, on one capture of the screen
+//   crystalvision --compare A.ppm B.ppm
+//                                     how much the screen change detection sees B differ
+//                                     from A (for tuning ChangeThresholds)
 //   crystalvision --monitor           keep scanning the screen and cover what's found,
 //                                     until stopped
 
 #include "capture.hpp"
+#include "change.hpp"
 #include "detector.hpp"
 #include "frame.hpp"
 #include "monitor.hpp"
@@ -29,6 +33,7 @@
 #include <exception>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <pthread.h>
@@ -230,13 +235,26 @@ int monitor() {
             covered.clear();
             for (const auto& b : t.blocks) covered.push_back(b.box);
             overlay.show(covered);
-            const auto& tm = t.timing;
-            std::printf("tick %llu  %s  scale %.3f  input %dx%d  capture %.0f ms  detect %.0f ms "
-                        "(pre %.0f, inference %.0f, post %.1f)  %zu detection(s), %zu covered\n",
-                        static_cast<unsigned long long>(t.number), crystal::toString(t.state),
-                        static_cast<double>(t.scale), tm.inputWidth, tm.inputHeight, t.captureMs,
-                        tm.preMs + tm.inferMs + tm.postMs, tm.preMs, tm.inferMs, tm.postMs,
-                        t.detections.size(), t.blocks.size());
+            char change[48] = "change -";
+            if (t.change)
+                std::snprintf(change, sizeof change, "change luma %.1f chroma %.1f",
+                              static_cast<double>(t.change->luma),
+                              static_cast<double>(t.change->chroma));
+            if (t.skipped) {
+                std::printf("tick %llu  %s  scale %.3f  capture %.0f ms  %s (%.1f ms): "
+                            "unchanged, skipped\n",
+                            static_cast<unsigned long long>(t.number), crystal::toString(t.state),
+                            static_cast<double>(t.scale), t.captureMs, change, t.changeMs);
+            } else {
+                const auto& tm = t.timing;
+                std::printf(
+                    "tick %llu  %s  scale %.3f  input %dx%d  capture %.0f ms  %s  detect %.0f ms "
+                    "(pre %.0f, inference %.0f, post %.1f)  %zu detection(s), %zu covered\n",
+                    static_cast<unsigned long long>(t.number), crystal::toString(t.state),
+                    static_cast<double>(t.scale), tm.inputWidth, tm.inputHeight, t.captureMs,
+                    change, tm.preMs + tm.inferMs + tm.postMs, tm.preMs, tm.inferMs, tm.postMs,
+                    t.detections.size(), t.blocks.size());
+            }
             for (const auto& d : t.detections) {
                 std::printf(
                     "  %-26s %.3f  x=%d y=%d w=%d h=%d\n",
@@ -267,10 +285,36 @@ int monitor() {
     }
 }
 
+// Prints how different the change detection finds two images.
+int compare(const char* aPath, const char* bPath) {
+    crystal::Frame a, b;
+    std::string error;
+    for (auto [path, frame] : {std::pair{aPath, &a}, std::pair{bPath, &b}}) {
+        if (!crystal::readPpm(path, *frame, error)) {
+            std::fprintf(stderr, "error: %s: %s\n", path, error.c_str());
+            return EXIT_FAILURE;
+        }
+    }
+    const auto start = std::chrono::steady_clock::now();
+    const auto ga = crystal::summarize(a);
+    const std::chrono::duration<double, std::milli> took = std::chrono::steady_clock::now() - start;
+    const auto gb = crystal::summarize(b);
+    const auto change = crystal::compareGrids(ga, gb);
+    const crystal::ChangeThresholds limit;
+    std::printf("largest cell change: luma %.1f (threshold %.0f), chroma %.1f (threshold %.0f): "
+                "%s; summarise %.1f ms\n",
+                static_cast<double>(change.luma), static_cast<double>(limit.luma),
+                static_cast<double>(change.chroma), static_cast<double>(limit.chroma),
+                crystal::exceeds(change, limit) ? "changed, scan" : "unchanged, skip",
+                took.count());
+    return EXIT_SUCCESS;
+}
+
 void usage(std::FILE* to) {
     std::fprintf(to, "usage: crystalvision [--dump-frame FILE.ppm]\n"
                      "       crystalvision --detect IN.ppm [OUT.ppm]\n"
                      "       crystalvision --detect-screen [OUT.ppm]\n"
+                     "       crystalvision --compare A.ppm B.ppm\n"
                      "       crystalvision --monitor\n");
 }
 
@@ -284,6 +328,7 @@ int main(int argc, char** argv) {
     if (arg == "--detect" && (argc == 3 || argc == 4))
         return detectFile(argv[2], argc == 4 ? argv[3] : nullptr);
     if (arg == "--detect-screen" && argc <= 3) return detectScreen(argc == 3 ? argv[2] : nullptr);
+    if (arg == "--compare" && argc == 4) return compare(argv[2], argv[3]);
     if (arg == "--monitor" && argc == 2) return monitor();
     if (arg == "--help" || arg == "-h") {
         usage(stdout);

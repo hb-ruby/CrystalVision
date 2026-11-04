@@ -44,6 +44,7 @@ ctest --preset debug                                     # unit tests
 ./build/release/crystalvision --detect in.ppm out.ppm    # detect on an image, draw boxes
 ./build/release/crystalvision --detect-screen out.ppm    # detect on one screen capture
 ./build/release/crystalvision --monitor                  # keep scanning the screen, cover finds
+./build/release/crystalvision --compare a.ppm b.ppm      # how much change detection sees
 ```
 
 `--detect` takes binary PPM images and prints each detection with its label, score, box,
@@ -59,8 +60,17 @@ next. How much it shrinks and how long it waits depend on the scan state:
   genitalia or anus label, scoring 0.3 or more. Scans alternate 1.0 and 0.5, 0.5 s apart.
   It drops back to Calm 30 s after the last such find, but only once no boxes are held.
 
-Unlike `--detect`,
-the screen isn't letterboxed into a 640x640 square. It keeps its aspect ratio and is padded
+Calm scans are skipped when the screen hasn't changed, so an idle or static screen costs
+almost no CPU. The screen is summarised in 60 px cells (mean brightness and colour, from every
+3rd pixel; under 1 ms), and a scan runs if any single cell's colour moved by more than 5 or its
+brightness by more than 45 (out of 255). Colour carries most of the weight: scrolling grey text
+hardly changes it, while even a small colour thumbnail does. Each scan is compared with the
+last scan that ran, and full-resolution scans with the last full-resolution scan, so slow
+changes add up and a small image that a 0.333 scan missed still gets its sharp look. Skipped
+scans count toward the every-6th full scan, and a scan always runs at least once a minute.
+`--compare` prints the numbers for two screenshots, for checking the thresholds.
+
+Unlike `--detect`, the screen isn't letterboxed into a 640x640 square. It keeps its aspect ratio and is padded
 only to a multiple of 32 (the setup `scripts/scale-accuracy.py` measures).
 
 Inference uses at most 4 threads. Detections of the explicit `*_EXPOSED` labels (buttocks,

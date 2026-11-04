@@ -21,3 +21,4 @@ __pycache__/
 # Local test scripts (test images are never committed)
 /scripts/testset-detect.py
 /scripts/live-overlay-test.sh
+/scripts/change-tuning.py

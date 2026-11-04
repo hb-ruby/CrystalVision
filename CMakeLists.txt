@@ -39,6 +39,7 @@ endif()
 # --- Core library (everything except main, so tests can link it) --------
 add_library(crystalvision_core STATIC
   src/capture.cpp
+  src/change.cpp
   src/detect.cpp
   src/detector.cpp
   src/frame.cpp
