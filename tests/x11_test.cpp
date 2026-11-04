@@ -131,13 +131,15 @@ void discardsQueuedErrors(Connection& x) {
 
 void capturersReleaseEverything(Connection& x) {
     CHECK(ownShmSegments() == 0);
+    // At least one window to grab: a bare X server (Xvfb in CI) has none of its own.
+    TestWindow win{x, 0, 0, 32, 32, 0x00ff00};
     for (int i = 0; i < 20; ++i) {
         Capturer cap{x};
         Frame f;
         const auto stats = cap.capture(f);
         CHECK(f.width == x.screen().width_in_pixels && f.height == x.screen().height_in_pixels);
         CHECK(f.rgb.size() == static_cast<std::size_t>(f.width) * f.height * 3);
-        CHECK(stats.windowsDrawn + stats.windowsSkipped > 0);
+        CHECK(stats.windowsDrawn > 0);
         CHECK(ownShmSegments() == 1); // one reused segment, not one per window
     }
     CHECK(ownShmSegments() == 0); // each destructor detached it, so the kernel freed it
