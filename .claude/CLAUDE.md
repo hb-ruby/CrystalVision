@@ -33,8 +33,13 @@ Done:
 - [x] Black-box overlay over `*_EXPOSED` detections: one shaped, click-through, override-redirect window, excluded from capture; sharper-scan finds held until a same-or-sharper tick clears them
 
 To do:
+- [ ] Calm/Alert scan states, replacing the fixed 1 s loop. The app should be a light background process. A short window of uncaught images is acceptable, because the goal is to deter and restrict, not to catch every frame.
+  - **Calm** (default): 0.333 scan every 5 s, and every 6th scan at 1.0 so small images (thumbnail grids) still get caught.
+  - **Enter Alert** on any exposed class (the `shouldBlock` set) or warning class (`FEMALE_GENITALIA_COVERED`, `FEMALE_BREAST_COVERED`, `BUTTOCKS_COVERED`, `ANUS_COVERED`) scoring ≥ 0.3. This is lower than `kBlockScore`: the trigger only speeds up scanning, so it errs sensitive.
+  - **Alert**: scans alternate 1.0 and 0.5, with a 0.5 s gap after each one finishes.
+  - **Exit to Calm** after 30 s with no trigger, and only once a clean 1.0 scan has cleared every block. Calm's 0.333 scans can't clear blocks found by sharper scans (see `updateBlocks`), so leaving Alert with blocks still held would leave stale boxes on screen.
 - [ ] Screen change detection: scan only the regions that actually changed since the last scan, each cropped and scaled as close to the model's 640px input as possible. Full-screen scans run on a much slower interval to spare CPU.
-- [ ] Settings: label selection, score threshold (adjustable; fixed at 0.5 for now, `kBlockScore`), scan interval
+- [ ] Settings: label selection, score thresholds (adjustable; fixed for now at 0.5 to block, `kBlockScore`, and 0.3 to enter Alert), Calm/Alert intervals and exit time
 - [ ] Autostart on login
 - [ ] First tagged release (`v0.1.0`) and install test on a clean Mint 22
 - [ ] User controls: still need to figure out. Blocking should not be able to be disabled
