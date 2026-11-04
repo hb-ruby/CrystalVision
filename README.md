@@ -67,7 +67,7 @@ brightness by more than 45 (out of 255). Colour carries most of the weight: scro
 hardly changes it, while even a small colour thumbnail does. Each scan is compared with the
 last scan that ran, and full-resolution scans with the last full-resolution scan, so slow
 changes add up and a small image that a 0.333 scan missed still gets its sharp look. Skipped
-scans count toward the every-6th full scan, and a scan always runs at least once a minute.
+scans count toward the every-6th full scan, and a scan always runs at least once every 2 minutes.
 `--compare` prints the numbers for two screenshots, for checking the thresholds.
 
 Unlike `--detect`, the screen isn't letterboxed into a 640x640 square. It keeps its aspect ratio and is padded

@@ -75,7 +75,7 @@ class ChangeGate {
 
     struct Options {
         ChangeThresholds threshold;
-        std::chrono::milliseconds maxSkip{60000};
+        std::chrono::milliseconds maxSkip{120000};
     };
 
     ChangeGate() : ChangeGate{Options{}} {}

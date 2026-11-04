@@ -144,10 +144,10 @@ void gateForcesAScanAfterMaxSkip() {
     const auto a = crystal::summarize(page());
     const Clock::time_point t0{};
     gate.ran(a, 0.333f, t0);
-    CHECK(gate.canSkip(a, 0.333f, t0 + 55s));
-    CHECK(!gate.canSkip(a, 0.333f, t0 + 60s));
-    gate.ran(a, 0.333f, t0 + 60s);
-    CHECK(gate.canSkip(a, 0.333f, t0 + 65s));
+    CHECK(gate.canSkip(a, 0.333f, t0 + 115s));
+    CHECK(!gate.canSkip(a, 0.333f, t0 + 120s));
+    gate.ran(a, 0.333f, t0 + 120s);
+    CHECK(gate.canSkip(a, 0.333f, t0 + 125s));
 }
 
 } // namespace
