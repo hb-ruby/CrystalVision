@@ -39,8 +39,10 @@ Done:
 To do:
 - [ ] Settings: label selection, score thresholds (adjustable; fixed for now at 0.5 to block, `kBlockScore`, and 0.3 to enter Alert), Calm/Alert intervals and exit time, change thresholds
 - [ ] First tagged release (`v0.1.0`) and install test on a clean Mint 22. Check there that autostart fires at login and that `X-GNOME-AutoRestart` really respawns a killed monitor (not yet verified)
-- [ ] User controls: still need to figure out. Blocking should not be able to be disabled (see heartbeat monitor)
-- [ ] Heartbeat monitor (separate design decision, tied to user controls): anything in the user's session runs as that user, so they can kill it or remove the autostart entry. Needs a root-owned system service that watches logins (logind) and checks a heartbeat from each session's monitor, relaunching it into the session if it stops. Only tamper-resistant when the protected account isn't an admin; with `sudo` the realistic goal is friction
+- [ ] User controls: still need to figure out. No in-app off switch for blocking
+
+## Not doing
+- Tamper resistance (root guard service, uninstall friction): built once, then dropped to keep the app simple. The user is mainly the owner; disabling or `sudo apt remove` is a deliberate choice, not something to defend against. `X-GNOME-AutoRestart` already covers an accidental kill
 
 ## Working with the user
 - Use plain English but keep technical terms and detail.
