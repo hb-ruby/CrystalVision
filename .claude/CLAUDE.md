@@ -37,12 +37,12 @@ Done:
 - [x] Autostart on login: XDG entry `/etc/xdg/autostart/crystalvision.desktop` (from `packaging/`, a dpkg conffile) runs `--monitor` in each user's graphical session, with `X-GNOME-AutoRestart=true` (Cinnamon's own daemons use it) for restart-on-crash. Not a systemd user unit: Cinnamon X11 never activates `graphical-session.target` (checked on the dev VM), so the unit couldn't follow login/logout. `--monitor` logs every tick only in a terminal or with `--verbose`; otherwise just start, Calm/Alert changes and stop, so `~/.xsession-errors` doesn't fill up
 
 To do:
-- [ ] Settings: label selection, score thresholds (adjustable; fixed for now at 0.5 to block, `kBlockScore`, and 0.3 to enter Alert), Calm/Alert intervals and exit time, change thresholds
 - [ ] First tagged release (`v0.1.0`) and install test on a clean Mint 22. Check there that autostart fires at login and that `X-GNOME-AutoRestart` really respawns a killed monitor (not yet verified)
-- [ ] User controls: still need to figure out. No in-app off switch for blocking
 
 ## Not doing
 - Tamper resistance (root guard service, uninstall friction): built once, then dropped to keep the app simple. The user is mainly the owner; disabling or `sudo apt remove` is a deliberate choice, not something to defend against. `X-GNOME-AutoRestart` already covers an accidental kill
+- Settings (UI or config file): the owner changes labels, score thresholds (0.5 to block, `kBlockScore`; 0.3 to enter Alert), Calm/Alert timings and change thresholds in the source and rebuilds
+- User controls: none, including no in-app off switch for blocking
 
 ## Working with the user
 - Use plain English but keep technical terms and detail.
