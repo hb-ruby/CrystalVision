@@ -34,11 +34,13 @@ Done:
 - [x] Calm/Alert scan states (`Scheduler`), replacing the fixed 1 s loop: Calm 0.333 every 5 s, every 6th at 1.0; Alert (any `triggersAlert` find, score ≥ 0.3) alternates 1.0/0.5 with 0.5 s gaps; back to Calm 30 s after the last trigger once no blocks are held
 - [x] Screen change detection (`ChangeGate`, Calm only): skips a scan if no 60 px cell's mean colour moved > 5 or brightness > 45 since the last scan that ran (1.0 scans: since the last 1.0 scan); forced scan at least every 120 s. Contrast was dropped and brightness needs a high threshold: scrolling text moves both as much as a thumbnail does; only colour separates them. Weak spots: small black-and-white images, and colourful text (syntax highlighting, coloured UI) scrolling triggers scans
 
+- [x] Autostart on login: XDG entry `/etc/xdg/autostart/crystalvision.desktop` (from `packaging/`, a dpkg conffile) runs `--monitor` in each user's graphical session, with `X-GNOME-AutoRestart=true` (Cinnamon's own daemons use it) for restart-on-crash. Not a systemd user unit: Cinnamon X11 never activates `graphical-session.target` (checked on the dev VM), so the unit couldn't follow login/logout. `--monitor` logs every tick only in a terminal or with `--verbose`; otherwise just start, Calm/Alert changes and stop, so `~/.xsession-errors` doesn't fill up
+
 To do:
 - [ ] Settings: label selection, score thresholds (adjustable; fixed for now at 0.5 to block, `kBlockScore`, and 0.3 to enter Alert), Calm/Alert intervals and exit time, change thresholds
-- [ ] Autostart on login
-- [ ] First tagged release (`v0.1.0`) and install test on a clean Mint 22
-- [ ] User controls: still need to figure out. Blocking should not be able to be disabled
+- [ ] First tagged release (`v0.1.0`) and install test on a clean Mint 22. Check there that autostart fires at login and that `X-GNOME-AutoRestart` really respawns a killed monitor (not yet verified)
+- [ ] User controls: still need to figure out. Blocking should not be able to be disabled (see heartbeat monitor)
+- [ ] Heartbeat monitor (separate design decision, tied to user controls): anything in the user's session runs as that user, so they can kill it or remove the autostart entry. Needs a root-owned system service that watches logins (logind) and checks a heartbeat from each session's monitor, relaunching it into the session if it stops. Only tamper-resistant when the protected account isn't an admin; with `sudo` the realistic goal is friction
 
 ## Working with the user
 - Use plain English but keep technical terms and detail.

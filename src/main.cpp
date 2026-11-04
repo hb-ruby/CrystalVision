@@ -10,8 +10,10 @@
 //   crystalvision --compare A.ppm B.ppm
 //                                     how much the screen change detection sees B differ
 //                                     from A (for tuning ChangeThresholds)
-//   crystalvision --monitor           keep scanning the screen and cover what's found,
-//                                     until stopped
+//   crystalvision --monitor [--verbose]
+//                                     keep scanning the screen and cover what's found,
+//                                     until stopped; logs every tick when run in a terminal
+//                                     or with --verbose
 
 #include "capture.hpp"
 #include "change.hpp"
@@ -38,6 +40,7 @@
 
 #include <pthread.h>
 #include <time.h>
+#include <unistd.h>
 
 namespace {
 
@@ -188,6 +191,35 @@ int detectScreen(const char* outPath) {
     return detect(frame, outPath);
 }
 
+// One tick's log lines: state, scale, timings, change, and each detection.
+void logTick(const crystal::Monitor::Tick& t) {
+    char change[48] = "change -";
+    if (t.change)
+        std::snprintf(change, sizeof change, "change luma %.1f chroma %.1f",
+                      static_cast<double>(t.change->luma), static_cast<double>(t.change->chroma));
+    if (t.skipped) {
+        std::printf("tick %llu  %s  scale %.3f  capture %.0f ms  %s (%.1f ms): "
+                    "unchanged, skipped\n",
+                    static_cast<unsigned long long>(t.number), crystal::toString(t.state),
+                    static_cast<double>(t.scale), t.captureMs, change, t.changeMs);
+    } else {
+        const auto& tm = t.timing;
+        std::printf("tick %llu  %s  scale %.3f  input %dx%d  capture %.0f ms  %s  detect %.0f ms "
+                    "(pre %.0f, inference %.0f, post %.1f)  %zu detection(s), %zu covered\n",
+                    static_cast<unsigned long long>(t.number), crystal::toString(t.state),
+                    static_cast<double>(t.scale), tm.inputWidth, tm.inputHeight, t.captureMs,
+                    change, tm.preMs + tm.inferMs + tm.postMs, tm.preMs, tm.inferMs, tm.postMs,
+                    t.detections.size(), t.blocks.size());
+    }
+    for (const auto& d : t.detections) {
+        std::printf("  %-26s %.3f  x=%d y=%d w=%d h=%d\n",
+                    std::string{crystal::kLabels[static_cast<std::size_t>(d.classId)]}.c_str(),
+                    static_cast<double>(d.score), static_cast<int>(d.box.x),
+                    static_cast<int>(d.box.y), static_cast<int>(d.box.w),
+                    static_cast<int>(d.box.h));
+    }
+}
+
 // The monitoring loop: one tick (capture the screen, detect), then wait, then the next tick.
 // The scale and the wait come from the Calm/Alert schedule (see Scheduler): 5 s between
 // cheap scans while calm, 0.5 s between sharp ones on alert. Exposed detections are covered
@@ -195,7 +227,11 @@ int detectScreen(const char* outPath) {
 // a slow tick (a full-resolution one, say) pushes the next one back instead of piling up. Runs
 // until SIGINT (Ctrl+C), SIGTERM or SIGHUP; a signal that arrives mid-tick stops the loop once the
 // tick is done.
-int monitor() {
+//
+// verbose logs every tick (see logTick). Otherwise only the start, the Calm/Alert changes and
+// the stop are logged: when it's started at login, stdout goes to ~/.xsession-errors, and a
+// line every 5 s would fill that file.
+int monitor(bool verbose) {
     // Block the stop signals before ONNX Runtime starts its threads (they inherit the mask),
     // so they stay pending until sigtimedwait picks them up during the wait.
     sigset_t stop;
@@ -228,45 +264,23 @@ int monitor() {
         capturer.exclude(overlay.window()); // analyse what's under the boxes, not the boxes
         crystal::Monitor mon{capturer, detector};
         std::vector<crystal::Box> covered;
-        std::printf("monitoring; Ctrl+C to stop\n");
+        if (isatty(STDOUT_FILENO))
+            std::printf("monitoring; Ctrl+C to stop\n");
+        else
+            std::printf("crystalvision: monitoring (pid %d, model %s)\n",
+                        static_cast<int>(getpid()), model->c_str());
+        std::fflush(stdout);
 
         for (;;) {
             const auto t = mon.tick();
             covered.clear();
             for (const auto& b : t.blocks) covered.push_back(b.box);
             overlay.show(covered);
-            char change[48] = "change -";
-            if (t.change)
-                std::snprintf(change, sizeof change, "change luma %.1f chroma %.1f",
-                              static_cast<double>(t.change->luma),
-                              static_cast<double>(t.change->chroma));
-            if (t.skipped) {
-                std::printf("tick %llu  %s  scale %.3f  capture %.0f ms  %s (%.1f ms): "
-                            "unchanged, skipped\n",
-                            static_cast<unsigned long long>(t.number), crystal::toString(t.state),
-                            static_cast<double>(t.scale), t.captureMs, change, t.changeMs);
-            } else {
-                const auto& tm = t.timing;
-                std::printf(
-                    "tick %llu  %s  scale %.3f  input %dx%d  capture %.0f ms  %s  detect %.0f ms "
-                    "(pre %.0f, inference %.0f, post %.1f)  %zu detection(s), %zu covered\n",
-                    static_cast<unsigned long long>(t.number), crystal::toString(t.state),
-                    static_cast<double>(t.scale), tm.inputWidth, tm.inputHeight, t.captureMs,
-                    change, tm.preMs + tm.inferMs + tm.postMs, tm.preMs, tm.inferMs, tm.postMs,
-                    t.detections.size(), t.blocks.size());
-            }
-            for (const auto& d : t.detections) {
-                std::printf(
-                    "  %-26s %.3f  x=%d y=%d w=%d h=%d\n",
-                    std::string{crystal::kLabels[static_cast<std::size_t>(d.classId)]}.c_str(),
-                    static_cast<double>(d.score), static_cast<int>(d.box.x),
-                    static_cast<int>(d.box.y), static_cast<int>(d.box.w),
-                    static_cast<int>(d.box.h));
-            }
+            if (verbose) logTick(t);
             if (t.next != t.state)
                 std::printf("-> %s (next scan in %lld ms)\n", crystal::toString(t.next),
                             static_cast<long long>(t.gap.count()));
-            std::fflush(stdout);
+            if (verbose || t.next != t.state) std::fflush(stdout);
 
             const timespec interval{static_cast<time_t>(t.gap.count() / 1000),
                                     static_cast<long>(t.gap.count() % 1000) * 1'000'000};
@@ -315,7 +329,7 @@ void usage(std::FILE* to) {
                      "       crystalvision --detect IN.ppm [OUT.ppm]\n"
                      "       crystalvision --detect-screen [OUT.ppm]\n"
                      "       crystalvision --compare A.ppm B.ppm\n"
-                     "       crystalvision --monitor\n");
+                     "       crystalvision --monitor [--verbose]\n");
 }
 
 } // namespace
@@ -329,7 +343,9 @@ int main(int argc, char** argv) {
         return detectFile(argv[2], argc == 4 ? argv[3] : nullptr);
     if (arg == "--detect-screen" && argc <= 3) return detectScreen(argc == 3 ? argv[2] : nullptr);
     if (arg == "--compare" && argc == 4) return compare(argv[2], argv[3]);
-    if (arg == "--monitor" && argc == 2) return monitor();
+    if (arg == "--monitor" && argc == 2) return monitor(isatty(STDOUT_FILENO) != 0);
+    if (arg == "--monitor" && argc == 3 && std::string_view{argv[2]} == "--verbose")
+        return monitor(true);
     if (arg == "--help" || arg == "-h") {
         usage(stdout);
         return EXIT_SUCCESS;

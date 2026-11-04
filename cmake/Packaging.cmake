@@ -4,6 +4,7 @@
 #   /usr/lib/crystalvision/libonnxruntime.so.1      (bundled upstream ONNX Runtime)
 #   /usr/share/crystalvision/models/640m.onnx        (NudeNet v3.4 weights)
 #   /usr/share/doc/crystalvision/                    (licenses)
+#   /etc/xdg/autostart/crystalvision.desktop         (runs --monitor at login)
 
 include(GNUInstallDirs)
 
@@ -18,6 +19,12 @@ install(TARGETS crystalvision RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/models/640m.onnx"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/crystalvision/models")
+
+# Start the monitor at every graphical login (XDG autostart; Cinnamon reads it). Absolute
+# path: it belongs in /etc, not under the /usr prefix. Listed in conffiles, so dpkg keeps
+# local edits on upgrade.
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/crystalvision-autostart.desktop"
+  DESTINATION /etc/xdg/autostart RENAME crystalvision.desktop)
 
 set(_docdir "${CMAKE_INSTALL_DATADIR}/doc/crystalvision")
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE" DESTINATION ${_docdir} RENAME copyright)
@@ -49,6 +56,7 @@ set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/hb-ruby/CrystalVision")
 # Work out Depends: (libxcb*, libc, libstdc++) automatically from the binary.
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS_PRIVATE_DIRS "${CMAKE_INSTALL_PREFIX}/${CV_PRIVATE_LIBDIR}")
+set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA "${CMAKE_CURRENT_SOURCE_DIR}/packaging/conffiles")
 
 if(NOT CV_BUNDLED_ORT_LIB)
   message(STATUS "CV_SYSTEM_ORT=ON: the .deb would not bundle ONNX Runtime; build packages with the default instead.")

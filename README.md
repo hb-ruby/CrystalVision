@@ -16,6 +16,10 @@ sudo apt install ./crystalvision_*_amd64.deb
 
 Targets Linux Mint 22 (X11). It should also work on Ubuntu 24.04+ and Debian 12+.
 
+The package installs `/etc/xdg/autostart/crystalvision.desktop`, so `crystalvision --monitor`
+starts at every graphical login, for every user. Log out and back in after installing. It runs
+in the user's own session (it needs their X display), and its log goes to `~/.xsession-errors`.
+
 ## Development setup
 
 ```sh
@@ -50,7 +54,9 @@ ctest --preset debug                                     # unit tests
 `--detect` takes binary PPM images and prints each detection with its label, score, box,
 and timings. The output image is optional. Use a release build to get realistic timings.
 
-`--monitor` runs the detection loop until Ctrl+C. Each tick captures the whole screen,
+`--monitor` runs the detection loop until Ctrl+C (or SIGTERM/SIGHUP). In a terminal it logs
+every tick. When stdout isn't a terminal (started at login, or redirected to a file), it logs only
+the start, Calm/Alert changes and the stop; add `--verbose` to get every tick anyway. Each tick captures the whole screen,
 shrinks it, and runs the model on it, then waits *after* the tick finishes before starting the
 next. How much it shrinks and how long it waits depend on the scan state:
 
