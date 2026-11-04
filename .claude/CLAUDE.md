@@ -38,7 +38,7 @@ To do:
   - **Enter Alert** on any exposed class (the `shouldBlock` set) or warning class (`FEMALE_GENITALIA_COVERED`, `FEMALE_BREAST_COVERED`, `BUTTOCKS_COVERED`, `ANUS_COVERED`) scoring ≥ 0.3. This is lower than `kBlockScore`: the trigger only speeds up scanning, so it errs sensitive.
   - **Alert**: scans alternate 1.0 and 0.5, with a 0.5 s gap after each one finishes.
   - **Exit to Calm** after 30 s with no trigger, and only once a clean 1.0 scan has cleared every block. Calm's 0.333 scans can't clear blocks found by sharper scans (see `updateBlocks`), so leaving Alert with blocks still held would leave stale boxes on screen.
-- [ ] Screen change detection: scan only the regions that actually changed since the last scan, each cropped and scaled as close to the model's 640px input as possible. Full-screen scans run on a much slower interval to spare CPU.
+- [ ] Screen change detection (Calm state only): before each 5 s 0.333 scan, compare the captured screen with the one from the last scan. If it hasn't changed, skip inference, so an idle or static screen costs almost no CPU. Alert scans always run.
 - [ ] Settings: label selection, score thresholds (adjustable; fixed for now at 0.5 to block, `kBlockScore`, and 0.3 to enter Alert), Calm/Alert intervals and exit time
 - [ ] Autostart on login
 - [ ] First tagged release (`v0.1.0`) and install test on a clean Mint 22
